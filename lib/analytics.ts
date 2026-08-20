@@ -9,15 +9,20 @@ export type WeeklyScoreRow = {
   score: number;
 };
 
-export function getAllWeeklyScores(): WeeklyScoreRow[] {
+// regularSeasonOnly excludes playoff bracket matchups (WINNERS_BRACKET,
+// LOSERS_CONSOLATION_LADDER, etc). teams.wins/losses/ties only tallies the
+// regular-season record, so anything comparing scores against that record
+// (e.g. the luck index) must use this to keep the two in sync.
+export function getAllWeeklyScores(regularSeasonOnly = false): WeeklyScoreRow[] {
+  const tierFilter = regularSeasonOnly ? " AND playoff_tier_type = 'NONE'" : "";
   return getDb()
     .prepare(
       `SELECT sc.season, sc.week, sc.team_id, t.primary_owner AS member_id,
               COALESCE(m.display_name, 'Unknown') AS display_name, sc.score
        FROM (
-         SELECT season, week, home_team_id AS team_id, home_score AS score FROM matchups WHERE home_score + away_score > 0
+         SELECT season, week, home_team_id AS team_id, home_score AS score FROM matchups WHERE home_score + away_score > 0${tierFilter}
          UNION ALL
-         SELECT season, week, away_team_id AS team_id, away_score AS score FROM matchups WHERE home_score + away_score > 0
+         SELECT season, week, away_team_id AS team_id, away_score AS score FROM matchups WHERE home_score + away_score > 0${tierFilter}
        ) sc
        JOIN teams t ON t.season = sc.season AND t.team_id = sc.team_id
        LEFT JOIN members m ON t.primary_owner = m.member_id`
@@ -30,6 +35,11 @@ export function getAllWeeklyScores(): WeeklyScoreRow[] {
 // manager's career and compared to their actual win total. A positive
 // luck score means they've won more than their weekly scores alone would
 // predict (favorable schedule); negative means the opposite.
+//
+// Restricted to regular-season weeks: teams.wins/losses/ties (the "actual"
+// side) never counts playoff bracket games, so including those weeks here
+// would inflate expected wins for every playoff team without a matching
+// actual win, making almost everyone read as unlucky.
 export type LuckRow = {
   member_id: string;
   display_name: string;
@@ -40,7 +50,7 @@ export type LuckRow = {
 };
 
 export function getLuckIndex(): LuckRow[] {
-  const rows = getAllWeeklyScores();
+  const rows = getAllWeeklyScores(true);
   const byWeek = new Map<string, WeeklyScoreRow[]>();
   for (const r of rows) {
     const key = `${r.season}-${r.week}`;
