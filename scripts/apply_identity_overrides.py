@@ -19,6 +19,7 @@ RENAMES = {
     "{7305A686-7857-4C45-8B06-E5A22837D385}": "Max",
     "{888F9250-2AD4-4E73-8FED-E4DD4589212B}": "Will",
     "{C86E7708-25E8-4526-8A11-FA97559206ED}": "Eddie Iuteri",
+    "{8FD21DCD-D534-415A-921D-CDD534215A17}": "Michael Grabel",
 }
 
 # duplicate_member_id -> canonical_member_id (stats/picks get reassigned, duplicate row removed)
