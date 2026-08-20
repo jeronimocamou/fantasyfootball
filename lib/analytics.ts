@@ -56,30 +56,40 @@ export function getLuckIndex(): LuckRow[] {
       const lower = group.filter((g) => g.score < team.score).length;
       const equal = group.filter((g) => g.score === team.score).length - 1;
       const winFrac = (lower + equal * 0.5) / (n - 1);
-      const key = team.member_id ?? team.display_name;
+      const key = team.display_name;
       if (!expected.has(key)) expected.set(key, { display_name: team.display_name, expected: 0 });
       expected.get(key)!.expected += winFrac;
     }
   }
 
-  const actual = getDb()
-    .prepare(
-      `SELECT t.primary_owner AS member_id, COALESCE(m.display_name,'Unknown') AS display_name,
-              SUM(t.wins) AS wins, SUM(t.losses) AS losses, SUM(t.ties) AS ties
-       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
-       WHERE t.primary_owner IS NOT NULL
-       GROUP BY t.primary_owner`
-    )
-    .all() as { member_id: string; display_name: string; wins: number; losses: number; ties: number }[];
+  // Actual wins must come from the exact same set of games as "expected"
+  // above (every recorded matchup, including playoffs/consolation) — not
+  // teams.wins, which is ESPN's regular-season-only record. Mixing the two
+  // undercounts actual wins relative to expected and makes everyone look
+  // unlucky.
+  const matchups = getRivalryMatchups();
+  const actual = new Map<string, { display_name: string; wins: number; losses: number; ties: number }>();
+  for (const m of matchups) {
+    for (const [owner, isHome] of [
+      [m.home_owner, true],
+      [m.away_owner, false],
+    ] as const) {
+      if (!actual.has(owner)) actual.set(owner, { display_name: owner, wins: 0, losses: 0, ties: 0 });
+      const rec = actual.get(owner)!;
+      if (m.home_score === m.away_score) rec.ties += 1;
+      else if ((m.home_score > m.away_score) === isHome) rec.wins += 1;
+      else rec.losses += 1;
+    }
+  }
 
   const result: LuckRow[] = [];
-  for (const a of actual) {
-    const e = expected.get(a.member_id) ?? expected.get(a.display_name);
+  for (const [display_name, a] of actual) {
+    const e = expected.get(display_name);
     if (!e) continue;
     const actualWins = a.wins + a.ties * 0.5;
     result.push({
-      member_id: a.member_id,
-      display_name: a.display_name,
+      member_id: display_name,
+      display_name,
       games: a.wins + a.losses + a.ties,
       actual_wins: actualWins,
       expected_wins: Math.round(e.expected * 10) / 10,
