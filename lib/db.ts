@@ -137,6 +137,27 @@ export type MatchupWithNames = Matchup & {
   away_owner: string;
 };
 
+export type PointsBySeason = {
+  season: number;
+  member_id: string;
+  display_name: string;
+  points_for: number;
+  wins: number;
+  losses: number;
+};
+
+export function getPointsBySeason(): PointsBySeason[] {
+  return getDb()
+    .prepare(
+      `SELECT t.season, t.primary_owner AS member_id, COALESCE(m.display_name,'Unknown') AS display_name,
+              t.points_for, t.wins, t.losses
+       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE t.primary_owner IS NOT NULL AND (t.wins + t.losses + t.ties) > 0
+       ORDER BY t.season ASC`
+    )
+    .all() as PointsBySeason[];
+}
+
 export type SeasonTeamTotal = {
   season: number;
   team_id: number;

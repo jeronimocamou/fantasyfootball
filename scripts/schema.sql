@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS draft_picks (
     PRIMARY KEY (season, overall_pick)
 );
 
+CREATE TABLE IF NOT EXISTS player_weekly_scores (
+    season        INTEGER NOT NULL,
+    week          INTEGER NOT NULL,
+    team_id       INTEGER NOT NULL,
+    player_id     INTEGER NOT NULL,
+    lineup_slot_id INTEGER,          -- 0 QB,2 RB,4 WR,6 TE,16 D/ST,17 K,23 FLEX,20 BE,21 IR
+    points        REAL,
+    PRIMARY KEY (season, week, team_id, player_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_matchups_season_week ON matchups(season, week);
 CREATE INDEX IF NOT EXISTS idx_draft_season ON draft_picks(season);
 CREATE INDEX IF NOT EXISTS idx_teams_owner ON teams(primary_owner);
+CREATE INDEX IF NOT EXISTS idx_pws_season_week ON player_weekly_scores(season, week);
+CREATE INDEX IF NOT EXISTS idx_pws_player ON player_weekly_scores(player_id);

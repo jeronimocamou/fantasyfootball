@@ -40,6 +40,14 @@ def fetch_league(season: int) -> dict:
     return r.json()
 
 
+def fetch_boxscore(season: int, week: int) -> dict:
+    url = BASE.format(season=season, league_id=LEAGUE_ID)
+    params = {"view": "mBoxscore", "scoringPeriodId": week}
+    r = requests.get(url, params=params, cookies=COOKIES, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
 def fetch_players(season: int) -> list[dict]:
     url = PLAYERS_URL.format(season=season)
     headers = {"X-Fantasy-Filter": '{"players":{"limit":20000}}'}
@@ -135,6 +143,29 @@ def upsert_players(conn, players: list[dict]):
         )
 
 
+def upsert_boxscore(conn, season: int, week: int, data: dict):
+    for m in data.get("schedule", []):
+        if m.get("matchupPeriodId") != week:
+            continue
+        for side in ("home", "away"):
+            team = m.get(side)
+            if not team:
+                continue
+            roster = team.get("rosterForCurrentScoringPeriod") or {}
+            for entry in roster.get("entries", []):
+                ppe = entry.get("playerPoolEntry", {})
+                conn.execute(
+                    """INSERT INTO player_weekly_scores (season, week, team_id, player_id, lineup_slot_id, points)
+                       VALUES (?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(season, week, team_id, player_id) DO UPDATE SET
+                         lineup_slot_id=excluded.lineup_slot_id, points=excluded.points""",
+                    (
+                        season, week, team.get("teamId"), entry.get("playerId"),
+                        entry.get("lineupSlotId"), ppe.get("appliedStatTotal"),
+                    ),
+                )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", type=int, default=2021)
@@ -170,9 +201,29 @@ def main():
                   f"no draft yet (preseason)")
 
         conn.commit()
+
+        played_weeks = sorted({
+            m["matchupPeriodId"] for m in data.get("schedule", [])
+            if m.get("home", {}).get("totalPoints", 0) + m.get("away", {}).get("totalPoints", 0) > 0
+        })
+        if played_weeks:
+            print(f"  pulling box scores for {len(played_weeks)} weeks...")
+            for week in played_weeks:
+                try:
+                    box = fetch_boxscore(season, week)
+                    upsert_boxscore(conn, season, week, box)
+                except requests.HTTPError as e:
+                    print(f"    week {week} boxscore failed: {e}")
+                time.sleep(0.3)
+            conn.commit()
+
         time.sleep(0.5)  # be polite to ESPN's API
 
     conn.close()
+
+    import apply_identity_overrides
+    apply_identity_overrides.main()
+
     print(f"\nDone. Database at {DB_PATH}")
 
 

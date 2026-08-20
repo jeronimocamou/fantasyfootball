@@ -14,6 +14,9 @@ export default function Nav() {
           <Link href="/" className="hover:text-foreground">
             All-Time
           </Link>
+          <Link href="/analytics" className="hover:text-foreground">
+            Analytics
+          </Link>
           <Link href="/records" className="hover:text-foreground">
             Records
           </Link>
