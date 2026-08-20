@@ -33,19 +33,19 @@ export default async function DraftPage(props: PageProps<"/draft/[year]">) {
       <h1 className="text-2xl font-bold tracking-tight">{season} Draft Board</h1>
 
       {picks.length === 0 ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           No draft data yet for this season.
         </p>
       ) : (
         <div className="flex flex-col gap-6">
           {rounds.map((round) => (
             <div key={round}>
-              <h2 className="mb-2 text-sm font-semibold text-zinc-500">
+              <h2 className="mb-2 text-sm font-semibold text-muted">
                 Round {round}
               </h2>
-              <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+              <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
                 <table className="w-full min-w-[560px] text-sm">
-                  <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+                  <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
                     <tr>
                       <th className="px-4 py-2">Pick</th>
                       <th className="px-4 py-2">Team</th>
@@ -62,9 +62,9 @@ export default async function DraftPage(props: PageProps<"/draft/[year]">) {
                       .map((p) => (
                         <tr
                           key={p.overall_pick}
-                          className="border-t border-black/5 dark:border-white/5"
+                          className="border-t border-border-color/60"
                         >
-                          <td className="px-4 py-2 text-zinc-500">
+                          <td className="px-4 py-2 text-muted">
                             {p.overall_pick}
                           </td>
                           <td className="px-4 py-2">
@@ -73,12 +73,12 @@ export default async function DraftPage(props: PageProps<"/draft/[year]">) {
                           <td className="px-4 py-2 font-medium">
                             {p.full_name ?? `#${p.player_id}`}
                             {p.keeper ? (
-                              <span className="ml-2 rounded bg-black/5 px-1.5 py-0.5 text-xs text-zinc-500 dark:bg-white/10">
+                              <span className="ml-2 rounded bg-foreground/5 px-1.5 py-0.5 text-xs text-muted">
                                 keeper
                               </span>
                             ) : null}
                           </td>
-                          <td className="px-4 py-2 text-zinc-500">
+                          <td className="px-4 py-2 text-muted">
                             {p.position_id ? POSITIONS[p.position_id] ?? "-" : "-"}
                           </td>
                           {picks.some((pp) => pp.bid_amount > 0) && (

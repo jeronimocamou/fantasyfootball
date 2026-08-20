@@ -46,9 +46,9 @@ export default function RecordsPage() {
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Best single-season point totals</h2>
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[560px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">#</th>
                 <th className="px-4 py-3">Team</th>
@@ -60,10 +60,10 @@ export default function RecordsPage() {
             </thead>
             <tbody>
               {bestSeasons.map((s, i) => (
-                <tr key={`${s.season}-${s.team_id}`} className="border-t border-black/5 dark:border-white/5">
-                  <td className="px-4 py-3 text-zinc-500">{i + 1}</td>
+                <tr key={`${s.season}-${s.team_id}`} className="border-t border-border-color/60">
+                  <td className="px-4 py-3 text-muted">{i + 1}</td>
                   <td className="px-4 py-3 font-medium">{s.name}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{s.display_name}</td>
+                  <td className="px-4 py-3 text-muted">{s.display_name}</td>
                   <td className="px-4 py-3">{s.season}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{s.wins}-{s.losses}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{s.points_for.toFixed(1)}</td>
@@ -79,10 +79,10 @@ export default function RecordsPage() {
 
 function RecordCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
-      <div className="text-xs uppercase tracking-wide text-zinc-500">{label}</div>
+    <div className="rounded-lg border border-border-color p-4">
+      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-1 text-3xl font-bold tabular-nums">{value}</div>
-      <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{detail}</div>
+      <div className="mt-1 text-sm text-muted">{detail}</div>
     </div>
   );
 }

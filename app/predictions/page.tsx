@@ -7,7 +7,7 @@ export default function PredictionsPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">2026 Power Rankings</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           The 2026 draft hasn&apos;t happened yet, so this has zero idea what
           anyone&apos;s roster will look like — it&apos;s purely a projection off
           history. Each manager is ranked by a recency-weighted blend of their
@@ -17,9 +17,9 @@ export default function PredictionsPage() {
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+      <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
         <table className="w-full min-w-[560px] text-sm">
-          <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+          <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Team</th>
@@ -31,12 +31,12 @@ export default function PredictionsPage() {
           </thead>
           <tbody>
             {standings.map((s) => (
-              <tr key={s.display_name} className="border-t border-black/5 dark:border-white/5">
-                <td className="px-4 py-3 text-zinc-500">{s.predicted_rank}</td>
+              <tr key={s.display_name} className="border-t border-border-color/60">
+                <td className="px-4 py-3 text-muted">{s.predicted_rank}</td>
                 <td className="px-4 py-3 font-medium">{s.team_name}</td>
-                <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{s.display_name}</td>
+                <td className="px-4 py-3 text-muted">{s.display_name}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{s.weighted_win_pct}%</td>
-                <td className="px-4 py-3 text-right tabular-nums text-zinc-500">
+                <td className="px-4 py-3 text-right tabular-nums text-muted">
                   {s.career_win_pct}%
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -46,7 +46,7 @@ export default function PredictionsPage() {
                   {s.trend === "down" && (
                     <span className="text-red-600 dark:text-red-400">▼ fading</span>
                   )}
-                  {s.trend === "flat" && <span className="text-zinc-500">— steady</span>}
+                  {s.trend === "flat" && <span className="text-muted">— steady</span>}
                 </td>
               </tr>
             ))}

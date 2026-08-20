@@ -52,7 +52,7 @@ export default function AnalyticsPage() {
     <div className="flex flex-col gap-12">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           The stuff your record doesn&apos;t tell you.
         </p>
       </div>
@@ -104,24 +104,24 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">All-play record</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Your record if you&apos;d played every team, every week, instead of just
           your actual schedule. This is the closest thing to a &quot;true skill&quot;
           ranking — no schedule luck involved.
         </p>
-        <div className="mt-4 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mt-4 rounded-lg border border-border-color p-4">
           <RankedBarChart data={allPlayData} nameKey="display_name" valueKey="win_pct" color="#378ADD" />
         </div>
       </section>
 
       <section>
         <h2 className="text-lg font-semibold">Luck index</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Actual career wins minus &quot;expected&quot; wins (the share of the league
           a manager outscored each week). Positive = benefited from schedule,
           negative = unlucky.
         </p>
-        <div className="mt-4 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mt-4 rounded-lg border border-border-color p-4">
           <RankedBarChart
             data={[...luck].sort((a, b) => b.luck - a.luck)}
             nameKey="display_name"
@@ -133,11 +133,11 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Points left on the bench</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Career total: points your optimal lineup would have scored minus what
           you actually started. Bad lineup decisions, quantified.
         </p>
-        <div className="mt-4 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mt-4 rounded-lg border border-border-color p-4">
           <RankedBarChart
             data={[...benchRegret].sort((a, b) => b.total_regret - a.total_regret)}
             nameKey="display_name"
@@ -149,18 +149,18 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Scoring consistency</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Standard deviation of weekly score, career-wide. Higher = boom-or-bust,
           lower = steady. (Managers under 10 games played are excluded.)
         </p>
-        <div className="mt-4 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mt-4 rounded-lg border border-border-color p-4">
           <RankedBarChart data={consistency} nameKey="display_name" valueKey="stdev" color="#7F77DD" />
         </div>
       </section>
 
       <section>
         <h2 className="text-lg font-semibold">Draft pick value</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Value = pick number minus that player&apos;s scoring rank among all
           drafted players that season. Positive = steal, negative = bust.
         </p>
@@ -172,13 +172,13 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Nemeses</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Each manager&apos;s worst matchup — the opponent they have the toughest
           time beating (minimum 4 meetings).
         </p>
-        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[480px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Manager</th>
                 <th className="px-4 py-3">Nemesis</th>
@@ -188,7 +188,7 @@ export default function AnalyticsPage() {
             </thead>
             <tbody>
               {nemeses.map((n) => (
-                <tr key={n.display_name} className="border-t border-black/5 dark:border-white/5">
+                <tr key={n.display_name} className="border-t border-border-color/60">
                   <td className="px-4 py-3 font-medium">{n.display_name}</td>
                   <td className="px-4 py-3">{n.nemesis}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
@@ -205,13 +205,13 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Championship &amp; playoff droughts</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           Seasons since each manager&apos;s last title / last trip to the winners
           bracket, as of the most recent completed season.
         </p>
-        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[560px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Manager</th>
                 <th className="px-4 py-3 text-right">Last title</th>
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
             </thead>
             <tbody>
               {droughts.map((d) => (
-                <tr key={d.display_name} className="border-t border-black/5 dark:border-white/5">
+                <tr key={d.display_name} className="border-t border-border-color/60">
                   <td className="px-4 py-3 font-medium">{d.display_name}</td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {d.last_title_season ?? "never"}
@@ -245,14 +245,14 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Draft tendencies by position</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           How many rounds earlier (−) or later (+) than the league average each
           manager tends to draft each position. Minimum 3 picks at that
           position.
         </p>
-        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[480px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Manager</th>
                 <th className="px-4 py-3">Position</th>
@@ -262,15 +262,15 @@ export default function AnalyticsPage() {
             </thead>
             <tbody>
               {draftTendency.map((d) => (
-                <tr key={`${d.display_name}-${d.position}`} className="border-t border-black/5 dark:border-white/5">
+                <tr key={`${d.display_name}-${d.position}`} className="border-t border-border-color/60">
                   <td className="px-4 py-3 font-medium">{d.display_name}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{d.position}</td>
+                  <td className="px-4 py-3 text-muted">{d.position}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{d.picks}</td>
                   <td
                     className={`px-4 py-3 text-right tabular-nums font-medium ${
                       d.avg_round_diff < 0
                         ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-zinc-500"
+                        : "text-muted"
                     }`}
                   >
                     {d.avg_round_diff > 0 ? "+" : ""}
@@ -285,12 +285,12 @@ export default function AnalyticsPage() {
 
       <section>
         <h2 className="text-lg font-semibold">Head-to-head</h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted">
           All-time record between managers who&apos;ve played at least 3 times.
         </p>
-        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Matchup</th>
                 <th className="px-4 py-3 text-right">Record</th>
@@ -303,7 +303,7 @@ export default function AnalyticsPage() {
               {h2h
                 .sort((a, b) => (b.a_wins + b.b_wins + b.ties) - (a.a_wins + a.b_wins + a.ties))
                 .map((r) => (
-                  <tr key={`${r.a}-${r.b}`} className="border-t border-black/5 dark:border-white/5">
+                  <tr key={`${r.a}-${r.b}`} className="border-t border-border-color/60">
                     <td className="px-4 py-3">
                       {r.a} vs {r.b}
                     </td>
@@ -312,7 +312,7 @@ export default function AnalyticsPage() {
                       {r.ties ? `-${r.ties}` : ""}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{r.seasons}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-zinc-500">
+                    <td className="px-4 py-3 text-right tabular-nums text-muted">
                       {r.first_season}
                       {r.first_season !== r.last_season ? `–${r.last_season}` : ""}
                     </td>
@@ -329,10 +329,10 @@ export default function AnalyticsPage() {
 
 function HighlightCard({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-black/10 p-4 dark:border-white/10">
-      <div className="text-xs uppercase tracking-wide text-zinc-500">{label}</div>
+    <div className="rounded-lg border border-border-color p-4">
+      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-1 text-xl font-bold">{value}</div>
-      <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{detail}</div>
+      <div className="mt-1 text-sm text-muted">{detail}</div>
     </div>
   );
 }
@@ -345,12 +345,12 @@ function DraftValueTable({
   rows: ReturnType<typeof getDraftValue>;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
-      <div className="border-b border-black/10 px-4 py-2 text-sm font-semibold dark:border-white/10">
+    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <div className="border-b border-border-color px-4 py-2 text-sm font-semibold">
         {title}
       </div>
       <table className="w-full min-w-[380px] text-sm">
-        <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+        <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
             <th className="px-3 py-2">Player</th>
             <th className="px-3 py-2">Manager</th>
@@ -363,13 +363,13 @@ function DraftValueTable({
           {rows.map((r) => (
             <tr
               key={`${r.season}-${r.overall_pick}`}
-              className="border-t border-black/5 dark:border-white/5"
+              className="border-t border-border-color/60"
             >
               <td className="px-3 py-2 font-medium">
                 {r.player_name}
-                <span className="ml-1 text-xs text-zinc-500">&apos;{String(r.season).slice(2)}</span>
+                <span className="ml-1 text-xs text-muted">&apos;{String(r.season).slice(2)}</span>
               </td>
-              <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">{r.display_name}</td>
+              <td className="px-3 py-2 text-muted">{r.display_name}</td>
               <td className="px-3 py-2 text-right tabular-nums">{r.overall_pick}</td>
               <td className="px-3 py-2 text-right tabular-nums">#{r.performance_rank}</td>
               <td

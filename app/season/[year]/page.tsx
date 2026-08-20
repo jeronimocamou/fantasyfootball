@@ -39,9 +39,9 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Standings</h2>
-        <div className="overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+        <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+            <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Rank</th>
                 <th className="px-4 py-3">Team</th>
@@ -53,12 +53,12 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
             </thead>
             <tbody>
               {teams.map((t, i) => (
-                <tr key={t.team_id} className="border-t border-black/5 dark:border-white/5">
-                  <td className="px-4 py-3 text-zinc-500">
+                <tr key={t.team_id} className="border-t border-border-color/60">
+                  <td className="px-4 py-3 text-muted">
                     {t.final_rank || i + 1}
                   </td>
                   <td className="px-4 py-3 font-medium">{t.name}</td>
-                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
+                  <td className="px-4 py-3 text-muted">
                     {t.display_name}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
@@ -84,7 +84,7 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
           <div className="flex flex-col gap-6">
             {weeks.map((week) => (
               <div key={week}>
-                <h3 className="mb-2 text-sm font-semibold text-zinc-500">
+                <h3 className="mb-2 text-sm font-semibold text-muted">
                   Week {week}
                 </h3>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -96,9 +96,9 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
                       return (
                         <div
                           key={m.matchup_id}
-                          className="flex items-center justify-between rounded-lg border border-black/10 px-4 py-2 text-sm dark:border-white/10"
+                          className="flex items-center justify-between rounded-lg border border-border-color px-4 py-2 text-sm"
                         >
-                          <span className={homeWin ? "font-semibold" : "text-zinc-500"}>
+                          <span className={homeWin ? "font-semibold" : "text-muted"}>
                             {teamName.get(m.home_team_id) ?? m.home_team_id}
                           </span>
                           <span className="tabular-nums">
@@ -110,7 +110,7 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
                               {m.away_score.toFixed(1)}
                             </span>
                           </span>
-                          <span className={awayWin ? "font-semibold" : "text-zinc-500"}>
+                          <span className={awayWin ? "font-semibold" : "text-muted"}>
                             {teamName.get(m.away_team_id) ?? m.away_team_id}
                           </span>
                         </div>
@@ -125,7 +125,7 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
 
       <Link
         href={`/draft/${season}`}
-        className="text-sm font-medium text-zinc-600 underline hover:text-foreground dark:text-zinc-400"
+        className="text-sm font-medium text-muted underline hover:text-foreground"
       >
         View {season} draft board →
       </Link>

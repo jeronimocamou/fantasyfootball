@@ -108,6 +108,43 @@ export type OwnerAllTime = {
   championships: number;
 };
 
+export type LeagueSummary = {
+  completedSeasons: number;
+  totalGames: number;
+  championshipsAwarded: number;
+  reigningChampion: { season: number; team_name: string; display_name: string } | null;
+};
+
+export function getLeagueSummary(): LeagueSummary {
+  const db = getDb();
+  const completedSeasons = (
+    db.prepare(`SELECT COUNT(DISTINCT season) AS n FROM teams WHERE wins + losses + ties > 0`).get() as {
+      n: number;
+    }
+  ).n;
+  const totalGames = (
+    db.prepare(`SELECT COUNT(*) AS n FROM matchups WHERE home_score + away_score > 0`).get() as { n: number }
+  ).n;
+  const championshipsAwarded = (
+    db.prepare(`SELECT COUNT(*) AS n FROM teams WHERE final_rank = 1`).get() as { n: number }
+  ).n;
+  const champ = db
+    .prepare(
+      `SELECT t.season, t.name AS team_name, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE t.final_rank = 1
+       ORDER BY t.season DESC LIMIT 1`
+    )
+    .get() as { season: number; team_name: string; display_name: string } | undefined;
+
+  return {
+    completedSeasons,
+    totalGames,
+    championshipsAwarded,
+    reigningChampion: champ ?? null,
+  };
+}
+
 export function getAllTimeStandings(): OwnerAllTime[] {
   return getDb()
     .prepare(
