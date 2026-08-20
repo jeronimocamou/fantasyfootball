@@ -582,23 +582,25 @@ export function getNemeses(): NemesisRow[] {
 
   const result: NemesisRow[] = [];
   for (const [display_name, opps] of vs) {
-    let worst: NemesisRow | null = null;
+    let worst: { opp: string; wins: number; losses: number; ties: number; winPct: number } | null = null;
     for (const [opp, rec] of opps) {
       const total = rec.w + rec.l + rec.t;
       if (total < 4) continue;
       const winPct = rec.w / total;
-      if (!worst || winPct < worst.win_pct) {
-        worst = {
-          display_name,
-          nemesis: opp,
-          wins: rec.w,
-          losses: rec.l,
-          ties: rec.t,
-          win_pct: Math.round(winPct * 1000) / 10,
-        };
+      if (!worst || winPct < worst.winPct) {
+        worst = { opp, wins: rec.w, losses: rec.l, ties: rec.t, winPct };
       }
     }
-    if (worst) result.push(worst);
+    if (worst) {
+      result.push({
+        display_name,
+        nemesis: worst.opp,
+        wins: worst.wins,
+        losses: worst.losses,
+        ties: worst.ties,
+        win_pct: Math.round(worst.winPct * 1000) / 10,
+      });
+    }
   }
   return result.sort((a, b) => a.win_pct - b.win_pct);
 }
