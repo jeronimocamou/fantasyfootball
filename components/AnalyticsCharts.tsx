@@ -17,6 +17,7 @@ type RankedBarChartProps = {
   valueKey: string;
   color?: string;
   colorByValue?: boolean; // green if >=0, coral if <0
+  unit?: string; // appended to axis ticks and tooltip values, e.g. "wins", "%", "pts"
 };
 
 export function RankedBarChart({
@@ -25,7 +26,9 @@ export function RankedBarChart({
   valueKey,
   color = "#378ADD",
   colorByValue = false,
+  unit,
 }: RankedBarChartProps) {
+  const withUnit = (v: number) => (unit ? `${v > 0 ? "+" : ""}${v} ${unit}` : String(v));
   return (
     <ResponsiveContainer width="100%" height={Math.max(280, data.length * 34)}>
       <BarChart
@@ -34,9 +37,12 @@ export function RankedBarChart({
         margin={{ top: 8, right: 24, left: 8, bottom: 0 }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="#88888833" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 12 }} />
+        <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={withUnit} />
         <YAxis type="category" dataKey={nameKey} width={140} tick={{ fontSize: 12 }} />
-        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+        <Tooltip
+          contentStyle={{ fontSize: 12, borderRadius: 8 }}
+          formatter={(v) => [withUnit(Number(v)), unit ? unit : "value"]}
+        />
         <Bar dataKey={valueKey} radius={[0, 4, 4, 0]}>
           {data.map((d, i) => (
             <Cell

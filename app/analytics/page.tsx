@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
 
   const allPlayData = allPlay.map((r) => ({
     display_name: r.display_name,
-    win_pct: Math.round((r.wins / (r.wins + r.losses)) * 1000) / 10,
+    win_pct: Math.round((r.wins / (r.wins + r.losses + r.ties)) * 1000) / 10,
     record: `${r.wins}-${r.losses}${r.ties ? `-${r.ties}` : ""}`,
   }));
 
@@ -110,7 +110,7 @@ export default function AnalyticsPage() {
           ranking — no schedule luck involved.
         </p>
         <div className="mt-4 rounded-lg border border-border-color p-4">
-          <RankedBarChart data={allPlayData} nameKey="display_name" valueKey="win_pct" color="#378ADD" />
+          <RankedBarChart data={allPlayData} nameKey="display_name" valueKey="win_pct" color="#378ADD" unit="%" />
         </div>
       </section>
 
@@ -118,8 +118,13 @@ export default function AnalyticsPage() {
         <h2 className="text-lg font-semibold">Luck index</h2>
         <p className="mt-1 text-sm text-muted">
           Actual career wins minus &quot;expected&quot; wins (the share of the league
-          a manager outscored each week). Positive = benefited from schedule,
-          negative = unlucky.
+          a manager outscored each week, across every game including
+          playoffs). Positive = benefited from schedule, negative = unlucky.
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          Unit: <span className="font-medium text-foreground">games won or lost to luck</span> — e.g. −5
+          means their schedule cost them roughly 5 wins compared to a
+          perfectly average slate; +2 means it gained them about 2.
         </p>
         <div className="mt-4 rounded-lg border border-border-color p-4">
           <RankedBarChart
@@ -127,6 +132,7 @@ export default function AnalyticsPage() {
             nameKey="display_name"
             valueKey="luck"
             colorByValue
+            unit="wins"
           />
         </div>
       </section>
@@ -143,6 +149,7 @@ export default function AnalyticsPage() {
             nameKey="display_name"
             valueKey="total_regret"
             color="#BA7517"
+            unit="pts"
           />
         </div>
       </section>
@@ -154,7 +161,7 @@ export default function AnalyticsPage() {
           lower = steady. (Managers under 10 games played are excluded.)
         </p>
         <div className="mt-4 rounded-lg border border-border-color p-4">
-          <RankedBarChart data={consistency} nameKey="display_name" valueKey="stdev" color="#7F77DD" />
+          <RankedBarChart data={consistency} nameKey="display_name" valueKey="stdev" color="#7F77DD" unit="pts" />
         </div>
       </section>
 

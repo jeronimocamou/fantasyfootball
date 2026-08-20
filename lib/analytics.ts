@@ -164,7 +164,7 @@ export function getAllPlayRecord(): AllPlayRow[] {
     }
   }
   return [...totals.values()].sort(
-    (a, b) => b.wins / (b.wins + b.losses) - a.wins / (a.wins + a.losses)
+    (a, b) => b.wins / (b.wins + b.losses + b.ties) - a.wins / (a.wins + a.losses + a.ties)
   );
 }
 
@@ -784,14 +784,16 @@ export function getPredictedStandings(): PredictedStandingRow[] {
     let total = 0;
     for (const g of games) {
       const field = byWeekAllScores.get(`${g.season}-${g.week}`)!;
-      wins += field.filter((f) => f.score < g.score).length;
+      const lower = field.filter((f) => f.score < g.score).length;
+      const equal = field.filter((f) => f.score === g.score).length - 1;
+      wins += lower + equal * 0.5;
       total += field.length - 1;
     }
     return total > 0 ? wins / total : null;
   }
 
   const career = getAllPlayRecord();
-  const careerMap = new Map(career.map((c) => [c.display_name, c.wins / (c.wins + c.losses)]));
+  const careerMap = new Map(career.map((c) => [c.display_name, c.wins / (c.wins + c.losses + c.ties)]));
 
   const result: PredictedStandingRow[] = [];
   for (const team of current2026) {
