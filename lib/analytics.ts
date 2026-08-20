@@ -450,12 +450,24 @@ export type H2HRow = {
   a_wins: number;
   b_wins: number;
   ties: number;
+  seasons: number;
+  first_season: number;
+  last_season: number;
+  avg_margin: number;
 };
 
-export function getHeadToHead(): H2HRow[] {
-  const matchups = getDb()
+type RivalryMatchup = {
+  season: number;
+  home_score: number;
+  away_score: number;
+  home_owner: string;
+  away_owner: string;
+};
+
+function getRivalryMatchups(): RivalryMatchup[] {
+  return getDb()
     .prepare(
-      `SELECT ms.home_score, ms.away_score,
+      `SELECT ms.season, ms.home_score, ms.away_score,
               COALESCE(hm.display_name,'Unknown') AS home_owner,
               COALESCE(am.display_name,'Unknown') AS away_owner
        FROM matchups ms
@@ -465,14 +477,41 @@ export function getHeadToHead(): H2HRow[] {
        LEFT JOIN members am ON at.primary_owner = am.member_id
        WHERE ms.home_score + ms.away_score > 0 AND ht.primary_owner != at.primary_owner`
     )
-    .all() as { home_score: number; away_score: number; home_owner: string; away_owner: string }[];
+    .all() as RivalryMatchup[];
+}
 
-  const pairs = new Map<string, H2HRow>();
+export function getHeadToHead(): H2HRow[] {
+  const matchups = getRivalryMatchups();
+
+  const pairs = new Map<
+    string,
+    H2HRow & { seasonSet: Set<number>; marginSum: number; games: number }
+  >();
   for (const m of matchups) {
     const [a, b] = [m.home_owner, m.away_owner].sort();
     const key = `${a}|${b}`;
-    if (!pairs.has(key)) pairs.set(key, { a, b, a_wins: 0, b_wins: 0, ties: 0 });
+    if (!pairs.has(key)) {
+      pairs.set(key, {
+        a,
+        b,
+        a_wins: 0,
+        b_wins: 0,
+        ties: 0,
+        seasons: 0,
+        first_season: m.season,
+        last_season: m.season,
+        avg_margin: 0,
+        seasonSet: new Set(),
+        marginSum: 0,
+        games: 0,
+      });
+    }
     const row = pairs.get(key)!;
+    row.seasonSet.add(m.season);
+    row.first_season = Math.min(row.first_season, m.season);
+    row.last_season = Math.max(row.last_season, m.season);
+    row.marginSum += Math.abs(m.home_score - m.away_score);
+    row.games += 1;
     if (m.home_score === m.away_score) {
       row.ties += 1;
     } else {
@@ -481,7 +520,306 @@ export function getHeadToHead(): H2HRow[] {
       else row.b_wins += 1;
     }
   }
-  return [...pairs.values()].sort(
-    (x, y) => x.a.localeCompare(y.a) || x.b.localeCompare(y.b)
-  );
+
+  return [...pairs.values()]
+    .map((row) => ({
+      a: row.a,
+      b: row.b,
+      a_wins: row.a_wins,
+      b_wins: row.b_wins,
+      ties: row.ties,
+      seasons: row.seasonSet.size,
+      first_season: row.first_season,
+      last_season: row.last_season,
+      avg_margin: Math.round((row.marginSum / row.games) * 10) / 10,
+    }))
+    .sort((x, y) => x.a.localeCompare(y.a) || x.b.localeCompare(y.b));
+}
+
+// Each manager's toughest opponent: the one they have the worst win% against
+// (minimum 4 meetings, to avoid noise from one-off matchups).
+export type NemesisRow = {
+  display_name: string;
+  nemesis: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  win_pct: number;
+};
+
+export function getNemeses(): NemesisRow[] {
+  const matchups = getRivalryMatchups();
+  const vs = new Map<string, Map<string, { w: number; l: number; t: number }>>();
+
+  const record = (m: string, opp: string, key: "w" | "l" | "t") => {
+    if (!vs.has(m)) vs.set(m, new Map());
+    const opps = vs.get(m)!;
+    if (!opps.has(opp)) opps.set(opp, { w: 0, l: 0, t: 0 });
+    opps.get(opp)![key] += 1;
+  };
+
+  for (const m of matchups) {
+    if (m.home_score === m.away_score) {
+      record(m.home_owner, m.away_owner, "t");
+      record(m.away_owner, m.home_owner, "t");
+    } else {
+      const winner = m.home_score > m.away_score ? m.home_owner : m.away_owner;
+      const loser = winner === m.home_owner ? m.away_owner : m.home_owner;
+      record(winner, loser, "w");
+      record(loser, winner, "l");
+    }
+  }
+
+  const result: NemesisRow[] = [];
+  for (const [display_name, opps] of vs) {
+    let worst: NemesisRow | null = null;
+    for (const [opp, rec] of opps) {
+      const total = rec.w + rec.l + rec.t;
+      if (total < 4) continue;
+      const winPct = rec.w / total;
+      if (!worst || winPct < worst.win_pct) {
+        worst = {
+          display_name,
+          nemesis: opp,
+          wins: rec.w,
+          losses: rec.l,
+          ties: rec.t,
+          win_pct: Math.round(winPct * 1000) / 10,
+        };
+      }
+    }
+    if (worst) result.push(worst);
+  }
+  return result.sort((a, b) => a.win_pct - b.win_pct);
+}
+
+// Championship / playoff droughts, relative to the most recent completed season.
+export type DroughtRow = {
+  display_name: string;
+  last_title_season: number | null;
+  title_drought: number | null;
+  last_playoff_season: number | null;
+  playoff_drought: number | null;
+};
+
+export function getDroughts(): DroughtRow[] {
+  const currentSeason = (
+    getDb()
+      .prepare(
+        `SELECT MAX(season) AS s FROM teams WHERE wins + losses + ties > 0`
+      )
+      .get() as { s: number }
+  ).s;
+
+  const titles = getDb()
+    .prepare(
+      `SELECT t.primary_owner AS member_id, COALESCE(m.display_name,'Unknown') AS display_name, MAX(t.season) AS last_title
+       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE t.final_rank = 1 AND t.primary_owner IS NOT NULL
+       GROUP BY t.primary_owner`
+    )
+    .all() as { member_id: string; display_name: string; last_title: number }[];
+
+  const playoffs = getDb()
+    .prepare(
+      `SELECT t.primary_owner AS member_id, MAX(ms.season) AS last_playoff
+       FROM matchups ms
+       JOIN teams t ON t.season = ms.season
+         AND t.team_id IN (ms.home_team_id, ms.away_team_id)
+       WHERE ms.playoff_tier_type = 'WINNERS_BRACKET' AND t.primary_owner IS NOT NULL
+       GROUP BY t.primary_owner`
+    )
+    .all() as { member_id: string; last_playoff: number }[];
+  const playoffMap = new Map(playoffs.map((p) => [p.member_id, p.last_playoff]));
+
+  const allManagers = getDb()
+    .prepare(
+      `SELECT DISTINCT t.primary_owner AS member_id, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE t.primary_owner IS NOT NULL AND t.wins + t.losses + t.ties > 0`
+    )
+    .all() as { member_id: string; display_name: string }[];
+  const titleMap = new Map(titles.map((t) => [t.member_id, t.last_title]));
+
+  return allManagers
+    .map((m) => {
+      const lastTitle = titleMap.get(m.member_id) ?? null;
+      const lastPlayoff = playoffMap.get(m.member_id) ?? null;
+      return {
+        display_name: m.display_name,
+        last_title_season: lastTitle,
+        title_drought: lastTitle != null ? currentSeason - lastTitle : null,
+        last_playoff_season: lastPlayoff,
+        playoff_drought: lastPlayoff != null ? currentSeason - lastPlayoff : null,
+      };
+    })
+    .sort((a, b) => {
+      const ad = a.title_drought ?? 999;
+      const bd = b.title_drought ?? 999;
+      return bd - ad;
+    });
+}
+
+const POSITION_NAMES: Record<number, string> = {
+  1: "QB",
+  2: "RB",
+  3: "WR",
+  4: "TE",
+  5: "K",
+  16: "D/ST",
+};
+
+// For each manager+position, how many rounds earlier/later than the league
+// average that season they tend to draft that position. Negative = reaches
+// early, positive = waits.
+export type DraftTendencyRow = {
+  display_name: string;
+  position: string;
+  picks: number;
+  avg_round_diff: number;
+};
+
+export function getDraftTendency(): DraftTendencyRow[] {
+  const picks = getDb()
+    .prepare(
+      `SELECT d.season, p.position_id, d.round_id, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM draft_picks d
+       JOIN players p ON p.player_id = d.player_id
+       LEFT JOIN teams t ON t.season = d.season AND t.team_id = d.team_id
+       LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE d.player_id != -1 AND p.position_id IS NOT NULL`
+    )
+    .all() as { season: number; position_id: number; round_id: number; display_name: string }[];
+
+  const leagueAvg = new Map<string, { sum: number; count: number }>();
+  for (const p of picks) {
+    const key = `${p.season}-${p.position_id}`;
+    if (!leagueAvg.has(key)) leagueAvg.set(key, { sum: 0, count: 0 });
+    const e = leagueAvg.get(key)!;
+    e.sum += p.round_id;
+    e.count += 1;
+  }
+
+  const perManager = new Map<string, { sum: number; count: number }>();
+  for (const p of picks) {
+    const leagueKey = `${p.season}-${p.position_id}`;
+    const league = leagueAvg.get(leagueKey)!;
+    const leagueMean = league.sum / league.count;
+    const diff = p.round_id - leagueMean;
+
+    const key = `${p.display_name}|${p.position_id}`;
+    if (!perManager.has(key)) perManager.set(key, { sum: 0, count: 0 });
+    const e = perManager.get(key)!;
+    e.sum += diff;
+    e.count += 1;
+  }
+
+  const result: DraftTendencyRow[] = [];
+  for (const [key, e] of perManager) {
+    if (e.count < 3) continue;
+    const [display_name, positionId] = key.split("|");
+    result.push({
+      display_name,
+      position: POSITION_NAMES[Number(positionId)] ?? positionId,
+      picks: e.count,
+      avg_round_diff: Math.round((e.sum / e.count) * 10) / 10,
+    });
+  }
+  return result.sort((a, b) => a.avg_round_diff - b.avg_round_diff);
+}
+
+// A speculative "power ranking" for the upcoming season, based entirely on
+// history — the draft hasn't happened yet, so this can't know anything
+// about actual 2026 rosters. It's a recency-weighted blend of all-play win%
+// (the schedule-luck-free skill measure), favoring recent seasons 3:2:1.
+export type PredictedStandingRow = {
+  display_name: string;
+  team_name: string;
+  predicted_rank: number;
+  weighted_win_pct: number;
+  career_win_pct: number;
+  seasons_used: number;
+  trend: "up" | "down" | "flat";
+};
+
+export function getPredictedStandings(): PredictedStandingRow[] {
+  const current2026 = getDb()
+    .prepare(
+      `SELECT t.team_id, t.name AS team_name, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE t.season = 2026`
+    )
+    .all() as { team_id: number; team_name: string; display_name: string }[];
+
+  const weeklyScores = getAllWeeklyScores();
+  const byManagerSeason = new Map<string, Map<number, WeeklyScoreRow[]>>();
+  for (const r of weeklyScores) {
+    if (!byManagerSeason.has(r.display_name)) byManagerSeason.set(r.display_name, new Map());
+    const seasons = byManagerSeason.get(r.display_name)!;
+    if (!seasons.has(r.season)) seasons.set(r.season, []);
+    seasons.get(r.season)!.push(r);
+  }
+
+  const byWeekAllScores = new Map<string, WeeklyScoreRow[]>();
+  for (const r of weeklyScores) {
+    const key = `${r.season}-${r.week}`;
+    if (!byWeekAllScores.has(key)) byWeekAllScores.set(key, []);
+    byWeekAllScores.get(key)!.push(r);
+  }
+
+  function allPlayPctForSeason(display_name: string, season: number): number | null {
+    const games = byManagerSeason.get(display_name)?.get(season);
+    if (!games || games.length === 0) return null;
+    let wins = 0;
+    let total = 0;
+    for (const g of games) {
+      const field = byWeekAllScores.get(`${g.season}-${g.week}`)!;
+      wins += field.filter((f) => f.score < g.score).length;
+      total += field.length - 1;
+    }
+    return total > 0 ? wins / total : null;
+  }
+
+  const career = getAllPlayRecord();
+  const careerMap = new Map(career.map((c) => [c.display_name, c.wins / (c.wins + c.losses)]));
+
+  const result: PredictedStandingRow[] = [];
+  for (const team of current2026) {
+    const seasons = [...(byManagerSeason.get(team.display_name)?.keys() ?? [])].sort((a, b) => b - a);
+    const recent = seasons.slice(0, 3);
+    const weights = [3, 2, 1];
+    let weightedSum = 0;
+    let weightTotal = 0;
+    recent.forEach((season, i) => {
+      const pct = allPlayPctForSeason(team.display_name, season);
+      if (pct != null) {
+        weightedSum += pct * weights[i];
+        weightTotal += weights[i];
+      }
+    });
+    const careerPct = careerMap.get(team.display_name) ?? 0.5;
+    const weightedPct = weightTotal > 0 ? weightedSum / weightTotal : careerPct;
+
+    const mostRecentPct = recent.length > 0 ? allPlayPctForSeason(team.display_name, recent[0]) : null;
+    const priorPct = recent.length > 1 ? allPlayPctForSeason(team.display_name, recent[1]) : null;
+    let trend: "up" | "down" | "flat" = "flat";
+    if (mostRecentPct != null && priorPct != null) {
+      if (mostRecentPct - priorPct > 0.05) trend = "up";
+      else if (priorPct - mostRecentPct > 0.05) trend = "down";
+    }
+
+    result.push({
+      display_name: team.display_name,
+      team_name: team.team_name,
+      predicted_rank: 0,
+      weighted_win_pct: Math.round(weightedPct * 1000) / 10,
+      career_win_pct: Math.round(careerPct * 1000) / 10,
+      seasons_used: recent.length,
+      trend,
+    });
+  }
+
+  result.sort((a, b) => b.weighted_win_pct - a.weighted_win_pct);
+  result.forEach((r, i) => (r.predicted_rank = i + 1));
+  return result;
 }

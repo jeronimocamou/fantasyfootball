@@ -6,6 +6,9 @@ import {
   getBenchRegret,
   getDraftValue,
   getLongestStreaks,
+  getNemeses,
+  getDroughts,
+  getDraftTendency,
 } from "@/lib/analytics";
 import { RankedBarChart } from "@/components/AnalyticsCharts";
 
@@ -17,6 +20,9 @@ export default function AnalyticsPage() {
   const draftValue = getDraftValue();
   const streaks = getLongestStreaks();
   const h2h = getHeadToHead().filter((r) => r.a_wins + r.b_wins + r.ties >= 3);
+  const nemeses = getNemeses();
+  const droughts = getDroughts();
+  const draftTendency = getDraftTendency();
 
   const allPlayData = allPlay.map((r) => ({
     display_name: r.display_name,
@@ -165,16 +171,132 @@ export default function AnalyticsPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Head-to-head</h2>
+        <h2 className="text-lg font-semibold">Nemeses</h2>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          All-time record between managers who&apos;ve played at least 3 times.
+          Each manager&apos;s worst matchup — the opponent they have the toughest
+          time beating (minimum 4 meetings).
         </p>
         <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
           <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
               <tr>
+                <th className="px-4 py-3">Manager</th>
+                <th className="px-4 py-3">Nemesis</th>
+                <th className="px-4 py-3 text-right">Record</th>
+                <th className="px-4 py-3 text-right">Win %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {nemeses.map((n) => (
+                <tr key={n.display_name} className="border-t border-black/5 dark:border-white/5">
+                  <td className="px-4 py-3 font-medium">{n.display_name}</td>
+                  <td className="px-4 py-3">{n.nemesis}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {n.wins}-{n.losses}
+                    {n.ties ? `-${n.ties}` : ""}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">{n.win_pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Championship &amp; playoff droughts</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Seasons since each manager&apos;s last title / last trip to the winners
+          bracket, as of the most recent completed season.
+        </p>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+              <tr>
+                <th className="px-4 py-3">Manager</th>
+                <th className="px-4 py-3 text-right">Last title</th>
+                <th className="px-4 py-3 text-right">Title drought</th>
+                <th className="px-4 py-3 text-right">Last playoffs</th>
+                <th className="px-4 py-3 text-right">Playoff drought</th>
+              </tr>
+            </thead>
+            <tbody>
+              {droughts.map((d) => (
+                <tr key={d.display_name} className="border-t border-black/5 dark:border-white/5">
+                  <td className="px-4 py-3 font-medium">{d.display_name}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {d.last_title_season ?? "never"}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {d.title_drought != null ? `${d.title_drought} yrs` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {d.last_playoff_season ?? "never"}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {d.playoff_drought != null ? `${d.playoff_drought} yrs` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Draft tendencies by position</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          How many rounds earlier (−) or later (+) than the league average each
+          manager tends to draft each position. Minimum 3 picks at that
+          position.
+        </p>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+          <table className="w-full min-w-[480px] text-sm">
+            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+              <tr>
+                <th className="px-4 py-3">Manager</th>
+                <th className="px-4 py-3">Position</th>
+                <th className="px-4 py-3 text-right">Picks</th>
+                <th className="px-4 py-3 text-right">Vs league avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {draftTendency.map((d) => (
+                <tr key={`${d.display_name}-${d.position}`} className="border-t border-black/5 dark:border-white/5">
+                  <td className="px-4 py-3 font-medium">{d.display_name}</td>
+                  <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">{d.position}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{d.picks}</td>
+                  <td
+                    className={`px-4 py-3 text-right tabular-nums font-medium ${
+                      d.avg_round_diff < 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    {d.avg_round_diff > 0 ? "+" : ""}
+                    {d.avg_round_diff} rounds
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Head-to-head</h2>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          All-time record between managers who&apos;ve played at least 3 times.
+        </p>
+        <div className="mt-4 overflow-x-auto rounded-lg border border-black/10 dark:border-white/10">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="bg-black/5 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
+              <tr>
                 <th className="px-4 py-3">Matchup</th>
                 <th className="px-4 py-3 text-right">Record</th>
+                <th className="px-4 py-3 text-right">Seasons</th>
+                <th className="px-4 py-3 text-right">Since</th>
+                <th className="px-4 py-3 text-right">Avg margin</th>
               </tr>
             </thead>
             <tbody>
@@ -189,6 +311,12 @@ export default function AnalyticsPage() {
                       {r.a_wins}-{r.b_wins}
                       {r.ties ? `-${r.ties}` : ""}
                     </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{r.seasons}</td>
+                    <td className="px-4 py-3 text-right tabular-nums text-zinc-500">
+                      {r.first_season}
+                      {r.first_season !== r.last_season ? `–${r.last_season}` : ""}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">{r.avg_margin.toFixed(1)}</td>
                   </tr>
                 ))}
             </tbody>

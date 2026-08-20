@@ -17,6 +17,9 @@ export default function Nav() {
           <Link href="/analytics" className="hover:text-foreground">
             Analytics
           </Link>
+          <Link href="/predictions" className="hover:text-foreground">
+            2026 Predictions
+          </Link>
           <Link href="/records" className="hover:text-foreground">
             Records
           </Link>
