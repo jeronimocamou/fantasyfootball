@@ -94,6 +94,15 @@ def upsert_teams(conn, season: int, data: dict):
         )
 
 
+def upsert_season_meta(conn, season: int, data: dict):
+    draft_date = data.get("settings", {}).get("draftSettings", {}).get("date")
+    conn.execute(
+        """INSERT INTO season_meta (season, draft_date) VALUES (?, ?)
+           ON CONFLICT(season) DO UPDATE SET draft_date=excluded.draft_date""",
+        (season, draft_date),
+    )
+
+
 def upsert_matchups(conn, season: int, data: dict):
     for m in data.get("schedule", []):
         home, away = m.get("home", {}), m.get("away", {})
@@ -185,6 +194,7 @@ def main():
 
         upsert_members(conn, data)
         upsert_teams(conn, season, data)
+        upsert_season_meta(conn, season, data)
         upsert_matchups(conn, season, data)
         n_picks = len(data.get("draftDetail", {}).get("picks", []))
         if n_picks:

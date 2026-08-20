@@ -96,6 +96,35 @@ export function getDraftForSeason(season: number): DraftPick[] {
     .all(season) as DraftPick[];
 }
 
+export function getDraftDate(season: number): Date | null {
+  const row = getDb()
+    .prepare(`SELECT draft_date FROM season_meta WHERE season = ?`)
+    .get(season) as { draft_date: number | null } | undefined;
+  return row?.draft_date ? new Date(row.draft_date) : null;
+}
+
+export type DraftOrderSlot = {
+  overall_pick: number;
+  team_id: number;
+  team_name: string;
+  display_name: string;
+};
+
+// Round-1 pick order — populated by ESPN as soon as the commissioner sets
+// it, even before the draft happens (picks have player_id = -1 until then).
+export function getDraftOrder(season: number): DraftOrderSlot[] {
+  return getDb()
+    .prepare(
+      `SELECT d.overall_pick, d.team_id, t.name AS team_name, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM draft_picks d
+       LEFT JOIN teams t ON t.season = d.season AND t.team_id = d.team_id
+       LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE d.season = ? AND d.round_id = 1
+       ORDER BY d.overall_pick ASC`
+    )
+    .all(season) as DraftOrderSlot[];
+}
+
 // All-time standings aggregated by owner (member_id), across every season they fielded a team.
 export type OwnerAllTime = {
   member_id: string;

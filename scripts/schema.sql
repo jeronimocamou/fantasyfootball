@@ -57,6 +57,11 @@ CREATE TABLE IF NOT EXISTS draft_picks (
     PRIMARY KEY (season, overall_pick)
 );
 
+CREATE TABLE IF NOT EXISTS season_meta (
+    season     INTEGER PRIMARY KEY,
+    draft_date INTEGER  -- epoch ms, from ESPN settings.draftSettings.date
+);
+
 CREATE TABLE IF NOT EXISTS player_weekly_scores (
     season        INTEGER NOT NULL,
     week          INTEGER NOT NULL,
