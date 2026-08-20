@@ -70,7 +70,8 @@ export function getTeamsForSeason(season: number): TeamWithOwner[] {
       `SELECT t.*, m.display_name
        FROM teams t LEFT JOIN members m ON t.primary_owner = m.member_id
        WHERE t.season = ?
-       ORDER BY t.wins DESC, t.points_for DESC`
+       ORDER BY CASE WHEN t.final_rank > 0 THEN t.final_rank ELSE 999 END ASC,
+                t.wins DESC, t.points_for DESC`
     )
     .all(season) as TeamWithOwner[];
 }
