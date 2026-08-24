@@ -740,10 +740,77 @@ export function getDraftTendency(): DraftTendencyRow[] {
   return result.sort((a, b) => a.avg_round_diff - b.avg_round_diff);
 }
 
-// A speculative "power ranking" for the upcoming season, based entirely on
-// history — the draft hasn't happened yet, so this can't know anything
-// about actual 2026 rosters. It's a recency-weighted blend of all-play win%
-// (the schedule-luck-free skill measure), favoring recent seasons 3:2:1.
+// Each 2026 team's roster strength: sum of every drafted player's total
+// fantasy points from the most recent completed season (2025). Rookies and
+// anyone else without 2025 data contribute 0 — a real limitation, not a
+// judgment that they're worthless, just that we have no prior signal for them.
+export type RosterStrengthRow = {
+  team_id: number;
+  team_name: string;
+  display_name: string;
+  roster_points: number;
+  players_with_data: number;
+  players_total: number;
+};
+
+export function getRosterStrength(season: number, priorSeason: number): RosterStrengthRow[] {
+  const picks = getDb()
+    .prepare(
+      `SELECT d.team_id, d.player_id, t.name AS team_name, COALESCE(m.display_name,'Unknown') AS display_name
+       FROM draft_picks d
+       LEFT JOIN teams t ON t.season = d.season AND t.team_id = d.team_id
+       LEFT JOIN members m ON t.primary_owner = m.member_id
+       WHERE d.season = ? AND d.player_id != -1`
+    )
+    .all(season) as { team_id: number; player_id: number; team_name: string; display_name: string }[];
+
+  const priorPoints = getDb()
+    .prepare(
+      `SELECT player_id, SUM(points) AS total
+       FROM (SELECT DISTINCT season, week, player_id, points FROM player_weekly_scores WHERE season = ?)
+       GROUP BY player_id`
+    )
+    .all(priorSeason) as { player_id: number; total: number }[];
+  const pointsMap = new Map(priorPoints.map((p) => [p.player_id, p.total]));
+
+  const byTeam = new Map<
+    number,
+    { team_name: string; display_name: string; points: number; withData: number; total: number }
+  >();
+  for (const p of picks) {
+    if (!byTeam.has(p.team_id)) {
+      byTeam.set(p.team_id, { team_name: p.team_name, display_name: p.display_name, points: 0, withData: 0, total: 0 });
+    }
+    const t = byTeam.get(p.team_id)!;
+    t.total += 1;
+    const pts = pointsMap.get(p.player_id);
+    if (pts != null) {
+      t.points += pts;
+      t.withData += 1;
+    }
+  }
+
+  return [...byTeam.entries()]
+    .map(([team_id, t]) => ({
+      team_id,
+      team_name: t.team_name,
+      display_name: t.display_name,
+      roster_points: Math.round(t.points * 10) / 10,
+      players_with_data: t.withData,
+      players_total: t.total,
+    }))
+    .sort((a, b) => b.roster_points - a.roster_points);
+}
+
+// A power ranking for the upcoming season, blending two independent signals:
+// 1) manager skill — recency-weighted all-play win% (3:2:1 across their last
+//    3 seasons), the schedule-luck-free measure used elsewhere on this site.
+// 2) roster strength — the actual 2026 draft, valued using each drafted
+//    player's 2025 season total.
+// Both are min-max normalized to 0-100 within this league and averaged
+// evenly. Once the draft has happened this is a real (if still rough)
+// forecast; before that, roster strength is unavailable and it falls back
+// to manager skill alone.
 export type PredictedStandingRow = {
   display_name: string;
   team_name: string;
@@ -752,6 +819,9 @@ export type PredictedStandingRow = {
   career_win_pct: number;
   seasons_used: number;
   trend: "up" | "down" | "flat";
+  roster_points: number | null;
+  roster_rank: number | null;
+  power_score: number;
 };
 
 export function getPredictedStandings(): PredictedStandingRow[] {
@@ -830,10 +900,42 @@ export function getPredictedStandings(): PredictedStandingRow[] {
       career_win_pct: Math.round(careerPct * 1000) / 10,
       seasons_used: recent.length,
       trend,
+      roster_points: null,
+      roster_rank: null,
+      power_score: 0,
     });
   }
 
-  result.sort((a, b) => b.weighted_win_pct - a.weighted_win_pct);
+  const roster = getRosterStrength(2026, 2025);
+  const rosterMap = new Map(roster.map((r) => [r.team_name, r]));
+
+  const skillVals = result.map((r) => r.weighted_win_pct);
+  const skillMin = Math.min(...skillVals);
+  const skillMax = Math.max(...skillVals);
+  const normSkill = (v: number) => (skillMax > skillMin ? ((v - skillMin) / (skillMax - skillMin)) * 100 : 50);
+
+  const rosterVals = roster.map((r) => r.roster_points);
+  const rosterMin = rosterVals.length ? Math.min(...rosterVals) : 0;
+  const rosterMax = rosterVals.length ? Math.max(...rosterVals) : 0;
+  const normRoster = (v: number) => (rosterMax > rosterMin ? ((v - rosterMin) / (rosterMax - rosterMin)) * 100 : 50);
+
+  const rosterRanked = [...roster].sort((a, b) => b.roster_points - a.roster_points);
+  const rosterRankMap = new Map(rosterRanked.map((r, i) => [r.team_name, i + 1]));
+
+  for (const r of result) {
+    const rs = rosterMap.get(r.team_name);
+    const skillScore = normSkill(r.weighted_win_pct);
+    if (rs) {
+      r.roster_points = rs.roster_points;
+      r.roster_rank = rosterRankMap.get(r.team_name) ?? null;
+      const rosterScore = normRoster(rs.roster_points);
+      r.power_score = Math.round((skillScore * 0.5 + rosterScore * 0.5) * 10) / 10;
+    } else {
+      r.power_score = Math.round(skillScore * 10) / 10;
+    }
+  }
+
+  result.sort((a, b) => b.power_score - a.power_score);
   result.forEach((r, i) => (r.predicted_rank = i + 1));
   return result;
 }

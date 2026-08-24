@@ -4,6 +4,8 @@ import {
   getSeasons,
   getTeamsForSeason,
   getMatchupsForSeason,
+  getDraftDate,
+  getDraftForSeason,
 } from "@/lib/db";
 
 export function generateStaticParams() {
@@ -25,6 +27,8 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
   );
 
   const hasStandings = teams.some((t) => t.wins + t.losses + t.ties > 0);
+  const draftHappened = getDraftForSeason(season).length > 0;
+  const draftDate = getDraftDate(season);
 
   return (
     <div className="flex flex-col gap-10">
@@ -32,7 +36,11 @@ export default async function SeasonPage(props: PageProps<"/season/[year]">) {
         <h1 className="text-2xl font-bold tracking-tight">{season} Season</h1>
         {!hasStandings && (
           <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
-            Preseason — draft hasn&apos;t happened yet, no games played.
+            {draftHappened
+              ? "Preseason — draft is done, no games played yet."
+              : draftDate
+                ? `Preseason — draft is set for ${draftDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}, no games played.`
+                : "Preseason — draft hasn't happened yet, no games played."}
           </p>
         )}
       </div>
