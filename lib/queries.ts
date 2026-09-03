@@ -1,9 +1,9 @@
 import { getPool } from "./pg";
-import { computeLine, gradeSide, profitForOdds, DEFAULT_ODDS } from "./betting";
+import { computeLine, gradeSide, profitForOdds, parlayPayout, DEFAULT_ODDS } from "./betting";
 import { fetchLeagueLive, type EspnTeam } from "./espn";
-import { WEEKLY_ALLOWANCE, MIN_BET } from "./bettingConstants";
+import { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS } from "./bettingConstants";
 
-export { WEEKLY_ALLOWANCE, MIN_BET };
+export { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS };
 
 export type Manager = {
   id: number;
@@ -91,7 +91,55 @@ async function settleLine(lineId: number) {
     );
   }
 
+  const { rows: legs } = await pool.query(
+    `SELECT * FROM parlay_legs WHERE line_id=$1 AND status='pending'`,
+    [lineId]
+  );
+  for (const leg of legs) {
+    const side = leg.side_manager_id === line.team_a_id ? "a" : "b";
+    const outcome = gradeSide(actualA, actualB, spreadA, side);
+    await pool.query(`UPDATE parlay_legs SET status=$1 WHERE id=$2`, [outcome, leg.id]);
+    await tryFinalizeParlay(leg.parlay_id);
+  }
+
   await pool.query(`UPDATE weekly_lines SET settled_at=now() WHERE id=$1`, [lineId]);
+}
+
+// A parlay settles once every leg has a non-pending status. A leg that
+// pushed is dropped from the payout calc rather than voiding the whole
+// parlay (standard sportsbook treatment); if every leg pushed, the whole
+// parlay pushes.
+async function tryFinalizeParlay(parlayId: number) {
+  const pool = getPool();
+  const { rows: legs } = await pool.query(`SELECT * FROM parlay_legs WHERE parlay_id=$1`, [parlayId]);
+  if (legs.some((l) => l.status === "pending")) return;
+
+  const { rows: parlayRows } = await pool.query(`SELECT * FROM parlays WHERE id=$1`, [parlayId]);
+  const parlay = parlayRows[0];
+  if (!parlay || parlay.status !== "pending") return;
+
+  const amount = Number(parlay.amount);
+  let status: "won" | "lost" | "push";
+  let payout: number;
+
+  if (legs.some((l) => l.status === "lost")) {
+    status = "lost";
+    payout = 0;
+  } else {
+    const liveLegOdds = legs.filter((l) => l.status === "won").map((l) => l.odds);
+    if (liveLegOdds.length === 0) {
+      status = "push"; // every leg pushed
+      payout = amount;
+    } else {
+      status = "won";
+      payout = parlayPayout(amount, liveLegOdds) ?? amount;
+    }
+  }
+
+  await pool.query(
+    `UPDATE parlays SET status=$1, payout=$2, settled_at=now() WHERE id=$3`,
+    [status, payout, parlayId]
+  );
 }
 
 // Pulls current ESPN state and walks the whole schedule, advancing each
@@ -199,11 +247,22 @@ export async function getCurrentWeek(season: number): Promise<number | null> {
   return rows[0]?.w ?? null;
 }
 
+// Straight-bet stakes plus parlay stakes both count against the same
+// weekly allowance. A parlay's legs are always drawn from whatever week
+// is currently open (only one week is ever open at a time), so checking
+// any one leg's week is enough to attribute the whole parlay to it.
 export async function getManagerWeekSpent(managerId: number, season: number, week: number): Promise<number> {
   const { rows } = await getPool().query(
-    `SELECT COALESCE(SUM(b.amount), 0) AS spent
-     FROM bets b JOIN weekly_lines wl ON wl.id = b.line_id
-     WHERE b.manager_id = $1 AND wl.season = $2 AND wl.week = $3`,
+    `SELECT COALESCE(SUM(amount), 0) AS spent FROM (
+       SELECT b.amount FROM bets b JOIN weekly_lines wl ON wl.id = b.line_id
+       WHERE b.manager_id = $1 AND wl.season = $2 AND wl.week = $3
+       UNION ALL
+       SELECT p.amount FROM parlays p
+       WHERE p.manager_id = $1 AND EXISTS (
+         SELECT 1 FROM parlay_legs pl JOIN weekly_lines wl ON wl.id = pl.line_id
+         WHERE pl.parlay_id = p.id AND wl.season = $2 AND wl.week = $3
+       )
+     ) combined`,
     [managerId, season, week]
   );
   return Number(rows[0].spent);
@@ -243,6 +302,115 @@ export async function placeBet(
     [managerId, lineId, sideManagerId, amount, line.odds]
   );
   return { ok: true, betId: rows[0].id };
+}
+
+export type ParlayLegInput = { lineId: number; sideManagerId: number };
+
+export type PlaceParlayResult =
+  | { ok: true; parlayId: number }
+  | { ok: false; error: string };
+
+export async function placeParlay(
+  managerId: number,
+  legs: ParlayLegInput[],
+  amount: number
+): Promise<PlaceParlayResult> {
+  if (amount < MIN_BET) return { ok: false, error: `Minimum bet is $${MIN_BET}.` };
+  if (legs.length < MIN_PARLAY_LEGS) {
+    return { ok: false, error: `A parlay needs at least ${MIN_PARLAY_LEGS} legs.` };
+  }
+  const lineIds = legs.map((l) => l.lineId);
+  if (new Set(lineIds).size !== lineIds.length) {
+    return { ok: false, error: "Can't parlay two picks from the same matchup." };
+  }
+
+  const pool = getPool();
+  const { rows: lineRows } = await pool.query(
+    `SELECT * FROM weekly_lines WHERE id = ANY($1::int[])`,
+    [lineIds]
+  );
+  const linesById = new Map<number, LineRow>(lineRows.map((r) => [r.id, r]));
+
+  for (const leg of legs) {
+    const line = linesById.get(leg.lineId);
+    if (!line) return { ok: false, error: "One of the selected lines no longer exists." };
+    if (line.status !== "open") return { ok: false, error: "One of the selected lines is no longer open." };
+    if (leg.sideManagerId !== line.team_a_id && leg.sideManagerId !== line.team_b_id) {
+      return { ok: false, error: "Invalid side on one of the legs." };
+    }
+    if (managerId === line.team_a_id || managerId === line.team_b_id) {
+      return { ok: false, error: "You can't include your own matchup in a parlay." };
+    }
+  }
+
+  const firstLine = linesById.get(legs[0].lineId)!;
+  const spent = await getManagerWeekSpent(managerId, firstLine.season, firstLine.week);
+  if (spent + amount > WEEKLY_ALLOWANCE + 1e-9) {
+    return {
+      ok: false,
+      error: `Only $${(WEEKLY_ALLOWANCE - spent).toFixed(2)} of your weekly $${WEEKLY_ALLOWANCE} left.`,
+    };
+  }
+
+  const { rows: parlayRows } = await pool.query(
+    `INSERT INTO parlays (manager_id, amount) VALUES ($1, $2) RETURNING id`,
+    [managerId, amount]
+  );
+  const parlayId = parlayRows[0].id;
+
+  for (const leg of legs) {
+    const line = linesById.get(leg.lineId)!;
+    await pool.query(
+      `INSERT INTO parlay_legs (parlay_id, line_id, side_manager_id, odds) VALUES ($1, $2, $3, $4)`,
+      [parlayId, leg.lineId, leg.sideManagerId, line.odds]
+    );
+  }
+
+  return { ok: true, parlayId };
+}
+
+export type ParlayHistoryRow = {
+  id: number;
+  amount: string;
+  status: string;
+  payout: string | null;
+  placed_at: string;
+  legs: {
+    line_id: number;
+    side_name: string;
+    opponent_name: string;
+    odds: number;
+    status: string;
+    season: number;
+    week: number;
+  }[];
+};
+
+export async function getManagerParlays(managerId: number): Promise<ParlayHistoryRow[]> {
+  const { rows: parlays } = await getPool().query(
+    `SELECT id, amount, status, payout, placed_at FROM parlays WHERE manager_id=$1 ORDER BY placed_at DESC`,
+    [managerId]
+  );
+  if (parlays.length === 0) return [];
+
+  const { rows: legs } = await getPool().query(
+    `SELECT pl.parlay_id, pl.line_id, pl.odds, pl.status, wl.season, wl.week,
+            side.display_name AS side_name,
+            CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name
+     FROM parlay_legs pl
+     JOIN weekly_lines wl ON wl.id = pl.line_id
+     JOIN managers side ON side.id = pl.side_manager_id
+     JOIN managers ma ON ma.id = wl.team_a_id
+     JOIN managers mb ON mb.id = wl.team_b_id
+     WHERE pl.parlay_id = ANY($1::int[])
+     ORDER BY pl.id`,
+    [parlays.map((p) => p.id)]
+  );
+
+  return parlays.map((p) => ({
+    ...p,
+    legs: legs.filter((l) => l.parlay_id === p.id),
+  }));
 }
 
 export type BetHistoryRow = {
@@ -289,18 +457,23 @@ export type LeaderboardRow = {
 
 export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   const { rows } = await getPool().query(
-    `SELECT m.id AS manager_id, m.display_name,
-            COUNT(b.id) AS bets_placed,
-            COUNT(*) FILTER (WHERE b.status = 'won') AS wins,
-            COUNT(*) FILTER (WHERE b.status = 'lost') AS losses,
-            COUNT(*) FILTER (WHERE b.status = 'push') AS pushes,
+    `WITH wagers AS (
+       SELECT manager_id, status, amount, payout FROM bets WHERE status != 'pending'
+       UNION ALL
+       SELECT manager_id, status, amount, payout FROM parlays WHERE status != 'pending'
+     )
+     SELECT m.id AS manager_id, m.display_name,
+            COUNT(w.*) AS bets_placed,
+            COUNT(*) FILTER (WHERE w.status = 'won') AS wins,
+            COUNT(*) FILTER (WHERE w.status = 'lost') AS losses,
+            COUNT(*) FILTER (WHERE w.status = 'push') AS pushes,
             COALESCE(SUM(CASE
-              WHEN b.status = 'won' THEN b.payout - b.amount
-              WHEN b.status = 'lost' THEN -b.amount
+              WHEN w.status = 'won' THEN w.payout - w.amount
+              WHEN w.status = 'lost' THEN -w.amount
               ELSE 0
             END), 0) AS net
      FROM managers m
-     LEFT JOIN bets b ON b.manager_id = m.id AND b.status != 'pending'
+     LEFT JOIN wagers w ON w.manager_id = m.id
      GROUP BY m.id, m.display_name
      ORDER BY net DESC`
   );

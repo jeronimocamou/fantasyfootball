@@ -42,6 +42,33 @@ CREATE TABLE IF NOT EXISTS bets (
     settled_at      TIMESTAMPTZ
 );
 
+CREATE TABLE IF NOT EXISTS parlays (
+    id          SERIAL PRIMARY KEY,
+    manager_id  INTEGER NOT NULL REFERENCES managers(id),  -- bettor
+    amount      NUMERIC(6,2) NOT NULL CHECK (amount > 0),
+    status      TEXT NOT NULL DEFAULT 'pending', -- pending | won | lost | push
+    payout      NUMERIC(8,2),
+    placed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    settled_at  TIMESTAMPTZ
+);
+
+-- One row per leg. A leg's own status tracks its individual grade (a push
+-- here doesn't push the whole parlay — it just drops out of the payout
+-- calc); the parent parlay only settles once every leg has a non-pending
+-- status.
+CREATE TABLE IF NOT EXISTS parlay_legs (
+    id              SERIAL PRIMARY KEY,
+    parlay_id       INTEGER NOT NULL REFERENCES parlays(id) ON DELETE CASCADE,
+    line_id         INTEGER NOT NULL REFERENCES weekly_lines(id),
+    side_manager_id INTEGER NOT NULL REFERENCES managers(id),
+    odds            INTEGER NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'pending', -- pending | won | lost | push
+    UNIQUE (parlay_id, line_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_season_week ON weekly_lines(season, week);
 CREATE INDEX IF NOT EXISTS idx_bets_manager ON bets(manager_id);
 CREATE INDEX IF NOT EXISTS idx_bets_line ON bets(line_id);
+CREATE INDEX IF NOT EXISTS idx_parlays_manager ON parlays(manager_id);
+CREATE INDEX IF NOT EXISTS idx_parlay_legs_parlay ON parlay_legs(parlay_id);
+CREATE INDEX IF NOT EXISTS idx_parlay_legs_line ON parlay_legs(line_id);
