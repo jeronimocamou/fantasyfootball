@@ -12,6 +12,11 @@ const STATUS_STYLE: Record<string, string> = {
   cancelled: "text-muted line-through",
 };
 
+function formatSpread(spread: number): string {
+  if (spread === 0) return "PK";
+  return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+}
+
 export default function AdminDashboard({
   season,
   week,
@@ -109,7 +114,9 @@ export default function AdminDashboard({
                 {bets.map((b) => (
                   <tr key={b.id} className="border-t border-border-color/60">
                     <td className="px-4 py-3">{b.manager_name}</td>
-                    <td className="px-4 py-3 font-medium">{b.side_name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {b.side_name} {formatSpread(Number(b.spread_for_side))}
+                    </td>
                     <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
                     <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
                     <td className={`px-4 py-3 text-right capitalize ${STATUS_STYLE[b.status]}`}>{b.status}</td>
@@ -160,9 +167,12 @@ export default function AdminDashboard({
                 </div>
                 <div className="mt-2 flex flex-col gap-1">
                   {p.legs.map((leg, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs text-muted">
-                      <span>
-                        {leg.side_name} vs {leg.opponent_name}
+                    <div key={i} className="flex items-center justify-between text-xs">
+                      <span className="text-muted">
+                        <span className="font-semibold text-foreground">
+                          {leg.side_name} {formatSpread(Number(leg.spread_for_side))}
+                        </span>{" "}
+                        vs {leg.opponent_name}
                       </span>
                       <span className={`capitalize ${STATUS_STYLE[leg.status]}`}>{leg.status}</span>
                     </div>

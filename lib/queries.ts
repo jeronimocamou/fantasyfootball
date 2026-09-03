@@ -588,6 +588,7 @@ export type AdminBetRow = {
   manager_name: string;
   side_name: string;
   opponent_name: string;
+  spread_for_side: string;
   amount: string;
   odds: number;
   status: string;
@@ -599,6 +600,7 @@ export async function getAllBetsForWeek(season: number, week: number): Promise<A
   const { rows } = await getPool().query(
     `SELECT b.id, bettor.display_name AS manager_name, side.display_name AS side_name,
             CASE WHEN b.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name,
+            CASE WHEN b.side_manager_id = wl.team_a_id THEN wl.spread ELSE -wl.spread END AS spread_for_side,
             b.amount, b.odds, b.status, b.payout, wl.week
      FROM bets b
      JOIN weekly_lines wl ON wl.id = b.line_id
@@ -619,7 +621,7 @@ export type AdminParlayRow = {
   amount: string;
   status: string;
   payout: string | null;
-  legs: { side_name: string; opponent_name: string; status: string; week: number }[];
+  legs: { side_name: string; opponent_name: string; spread_for_side: string; status: string; week: number }[];
 };
 
 export async function getAllParlaysForWeek(season: number, week: number): Promise<AdminParlayRow[]> {
@@ -638,7 +640,8 @@ export async function getAllParlaysForWeek(season: number, week: number): Promis
   const { rows: legs } = await getPool().query(
     `SELECT pl.parlay_id, pl.status, wl.week,
             side.display_name AS side_name,
-            CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name
+            CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name,
+            CASE WHEN pl.side_manager_id = wl.team_a_id THEN wl.spread ELSE -wl.spread END AS spread_for_side
      FROM parlay_legs pl
      JOIN weekly_lines wl ON wl.id = pl.line_id
      JOIN managers side ON side.id = pl.side_manager_id
