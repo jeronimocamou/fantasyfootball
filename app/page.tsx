@@ -112,7 +112,6 @@ export default async function BoardPage() {
                     {canBet && (
                       <>
                         <BetForm
-                          managerId={currentManagerId!}
                           lineId={line.id}
                           sideManagerId={line.team_a_id}
                           sideLabel={line.team_a_name}
@@ -146,7 +145,6 @@ export default async function BoardPage() {
                     {canBet && (
                       <>
                         <BetForm
-                          managerId={currentManagerId!}
                           lineId={line.id}
                           sideManagerId={line.team_b_id}
                           sideLabel={line.team_b_name}

@@ -49,7 +49,6 @@ export default function ParlaySlip({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        managerId,
         amount: value,
         legs: legs.map((l) => ({ lineId: l.lineId, sideManagerId: l.sideManagerId })),
       }),

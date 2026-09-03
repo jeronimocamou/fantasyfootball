@@ -6,14 +6,12 @@ import { profitForOdds } from "@/lib/betting";
 import { MIN_BET } from "@/lib/bettingConstants";
 
 export default function BetForm({
-  managerId,
   lineId,
   sideManagerId,
   sideLabel,
   maxAmount,
   odds,
 }: {
-  managerId: number;
   lineId: number;
   sideManagerId: number;
   sideLabel: string;
@@ -41,7 +39,7 @@ export default function BetForm({
     const res = await fetch("/api/bets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ managerId, lineId, sideManagerId, amount: value }),
+      body: JSON.stringify({ lineId, sideManagerId, amount: value }),
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
