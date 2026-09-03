@@ -47,7 +47,11 @@ export default function Nav({
             <NavLink href="/leaderboard">Leaderboard</NavLink>
           </nav>
           <ManagerPicker managers={managers} currentManagerId={currentManagerId} />
-          <Link href="/admin" className="text-xs text-muted hover:text-foreground" title="House dashboard">
+          <Link
+            href="/admin"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-muted transition-colors hover:bg-accent-soft hover:text-foreground"
+            title="House dashboard"
+          >
             🏦
           </Link>
         </div>
