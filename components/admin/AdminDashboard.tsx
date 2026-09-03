@@ -4,10 +4,96 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ManagerWeekSummary, AdminBetRow, AdminParlayRow } from "@/lib/queries";
 import StatusPill from "@/components/StatusPill";
+import CancelledDisclosure from "@/components/CancelledDisclosure";
 
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
   return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+}
+
+function BetsTable({ bets, onCancel }: { bets: AdminBetRow[]; onCancel: (betId: number) => void }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
+          <tr>
+            <th className="px-4 py-3">Bettor</th>
+            <th className="px-4 py-3">Pick</th>
+            <th className="px-4 py-3">Vs</th>
+            <th className="px-4 py-3 text-right">Amount</th>
+            <th className="px-4 py-3 text-right">Status</th>
+            <th className="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {bets.map((b) => (
+            <tr key={b.id} className="border-t border-border-color/60">
+              <td className="px-4 py-3">{b.manager_name}</td>
+              <td className="px-4 py-3 font-medium">
+                {b.side_name} {formatSpread(Number(b.spread_for_side))}
+              </td>
+              <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
+              <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
+              <td className="px-4 py-3 text-right">
+                <StatusPill status={b.status} />
+              </td>
+              <td className="px-4 py-3 text-right">
+                {b.status === "pending" && (
+                  <button
+                    onClick={() => onCancel(b.id)}
+                    className="text-xs text-red-600 hover:underline dark:text-red-400"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ParlaysList({ parlays, onCancel }: { parlays: AdminParlayRow[]; onCancel: (parlayId: number) => void }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {parlays.map((p) => (
+        <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium">
+              {p.manager_name} — {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
+            </span>
+            <div className="flex items-center gap-3">
+              {p.payout != null && <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>}
+              <StatusPill status={p.status} />
+              {p.status === "pending" && (
+                <button
+                  onClick={() => onCancel(p.id)}
+                  className="text-xs text-red-600 hover:underline dark:text-red-400"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="mt-2 flex flex-col gap-1">
+            {p.legs.map((leg, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="text-muted">
+                  <span className="font-semibold text-foreground">
+                    {leg.side_name} {formatSpread(Number(leg.spread_for_side))}
+                  </span>{" "}
+                  vs {leg.opponent_name}
+                </span>
+                <StatusPill status={leg.status} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function AdminDashboard({
@@ -24,6 +110,11 @@ export default function AdminDashboard({
   parlays: AdminParlayRow[];
 }) {
   const router = useRouter();
+
+  const activeBets = bets.filter((b) => b.status !== "cancelled");
+  const cancelledBets = bets.filter((b) => b.status === "cancelled");
+  const activeParlays = parlays.filter((p) => p.status !== "cancelled");
+  const cancelledParlays = parlays.filter((p) => p.status === "cancelled");
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -106,94 +197,37 @@ export default function AdminDashboard({
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Straight Bets</h2>
-        {bets.length === 0 ? (
+        {activeBets.length === 0 && cancelledBets.length === 0 ? (
           <p className="text-sm text-muted">No bets this week.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
-                <tr>
-                  <th className="px-4 py-3">Bettor</th>
-                  <th className="px-4 py-3">Pick</th>
-                  <th className="px-4 py-3">Vs</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                  <th className="px-4 py-3 text-right">Status</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {bets.map((b) => (
-                  <tr key={b.id} className="border-t border-border-color/60">
-                    <td className="px-4 py-3">{b.manager_name}</td>
-                    <td className="px-4 py-3 font-medium">
-                      {b.side_name} {formatSpread(Number(b.spread_for_side))}
-                    </td>
-                    <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <StatusPill status={b.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {b.status === "pending" && (
-                        <button
-                          onClick={() => cancelBet(b.id)}
-                          className="text-xs text-red-600 hover:underline dark:text-red-400"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {activeBets.length === 0 ? (
+              <p className="text-sm text-muted">No active bets this week.</p>
+            ) : (
+              <BetsTable bets={activeBets} onCancel={cancelBet} />
+            )}
+            <CancelledDisclosure count={cancelledBets.length}>
+              <BetsTable bets={cancelledBets} onCancel={cancelBet} />
+            </CancelledDisclosure>
+          </>
         )}
       </section>
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Parlays</h2>
-        {parlays.length === 0 ? (
+        {activeParlays.length === 0 && cancelledParlays.length === 0 ? (
           <p className="text-sm text-muted">No parlays this week.</p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {parlays.map((p) => (
-              <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">
-                    {p.manager_name} — {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {p.payout != null && (
-                      <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>
-                    )}
-                    <StatusPill status={p.status} />
-                    {p.status === "pending" && (
-                      <button
-                        onClick={() => cancelParlay(p.id)}
-                        className="text-xs text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-col gap-1">
-                  {p.legs.map((leg, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-muted">
-                        <span className="font-semibold text-foreground">
-                          {leg.side_name} {formatSpread(Number(leg.spread_for_side))}
-                        </span>{" "}
-                        vs {leg.opponent_name}
-                      </span>
-                      <StatusPill status={leg.status} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            {activeParlays.length === 0 ? (
+              <p className="text-sm text-muted">No active parlays this week.</p>
+            ) : (
+              <ParlaysList parlays={activeParlays} onCancel={cancelParlay} />
+            )}
+            <CancelledDisclosure count={cancelledParlays.length}>
+              <ParlaysList parlays={cancelledParlays} onCancel={cancelParlay} />
+            </CancelledDisclosure>
+          </>
         )}
       </section>
     </div>
