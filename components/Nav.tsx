@@ -31,12 +31,14 @@ export default function Nav({
   return (
     <header className="sticky top-0 z-10 border-b border-border-color bg-surface/85 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-lg text-accent-foreground">
-            🎲
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/40 bg-accent-soft font-display text-base font-semibold text-accent">
+            CY
           </span>
           <div>
-            <div className="text-lg font-bold leading-tight tracking-tight">Crackyard Sportsbook</div>
+            <div className="font-display text-lg font-semibold leading-tight tracking-tight">
+              Crackyard Sportsbook
+            </div>
             <div className="text-xs text-muted">Lines set from ESPN projections</div>
           </div>
         </Link>
@@ -49,10 +51,23 @@ export default function Nav({
           <ManagerPicker managers={managers} currentManagerId={currentManagerId} />
           <Link
             href="/admin"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-muted transition-colors hover:bg-accent-soft hover:text-foreground"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent-soft hover:text-foreground"
             title="House dashboard"
           >
-            🏦
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="M3 21h18" />
+              <path d="M4 21V10.5L12 4l8 6.5V21" />
+              <path d="M9 21v-6h6v6" />
+              <path d="M9 13.5h6" />
+            </svg>
           </Link>
         </div>
       </div>

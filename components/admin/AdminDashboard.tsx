@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ManagerWeekSummary, AdminBetRow, AdminParlayRow } from "@/lib/queries";
-
-const STATUS_STYLE: Record<string, string> = {
-  pending: "text-muted",
-  won: "text-emerald-600 dark:text-emerald-400",
-  lost: "text-red-600 dark:text-red-400",
-  push: "text-muted",
-  cancelled: "text-muted line-through",
-};
+import StatusPill from "@/components/StatusPill";
 
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
@@ -137,7 +130,9 @@ export default function AdminDashboard({
                     </td>
                     <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
                     <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
-                    <td className={`px-4 py-3 text-right capitalize ${STATUS_STYLE[b.status]}`}>{b.status}</td>
+                    <td className="px-4 py-3 text-right">
+                      <StatusPill status={b.status} />
+                    </td>
                     <td className="px-4 py-3 text-right">
                       {b.status === "pending" && (
                         <button
@@ -169,10 +164,10 @@ export default function AdminDashboard({
                     {p.manager_name} — {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
                   </span>
                   <div className="flex items-center gap-3">
-                    <span className={`capitalize ${STATUS_STYLE[p.status]}`}>
-                      {p.status}
-                      {p.payout != null && ` — $${Number(p.payout).toFixed(2)}`}
-                    </span>
+                    {p.payout != null && (
+                      <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>
+                    )}
+                    <StatusPill status={p.status} />
                     {p.status === "pending" && (
                       <button
                         onClick={() => cancelParlay(p.id)}
@@ -192,7 +187,7 @@ export default function AdminDashboard({
                         </span>{" "}
                         vs {leg.opponent_name}
                       </span>
-                      <span className={`capitalize ${STATUS_STYLE[leg.status]}`}>{leg.status}</span>
+                      <StatusPill status={leg.status} />
                     </div>
                   ))}
                 </div>

@@ -1,14 +1,7 @@
 import { getManagerBets, getManagerParlays, getManagers } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import { profitForOdds, parlayPayout } from "@/lib/betting";
-
-const STATUS_STYLE: Record<string, string> = {
-  pending: "text-muted",
-  won: "text-emerald-600 dark:text-emerald-400",
-  lost: "text-red-600 dark:text-red-400",
-  push: "text-muted",
-  cancelled: "text-muted line-through",
-};
+import StatusPill from "@/components/StatusPill";
 
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
@@ -89,7 +82,9 @@ export default async function MyBetsPage() {
                       <td className="px-4 py-3 font-medium">{b.side_name}</td>
                       <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
                       <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
-                      <td className={`px-4 py-3 text-right capitalize ${STATUS_STYLE[b.status]}`}>{b.status}</td>
+                      <td className="px-4 py-3 text-right">
+                        <StatusPill status={b.status} />
+                      </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {b.status === "pending" ? (
                           <span className="italic text-muted">${potentialPayout.toFixed(2)} if won</span>
@@ -125,15 +120,15 @@ export default async function MyBetsPage() {
                     <span className="font-medium">
                       {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
                     </span>
-                    <span className={`capitalize ${STATUS_STYLE[p.status]}`}>
+                    <span className="flex items-center gap-2">
                       {p.status === "pending" ? (
-                        <span className="italic">${potential.toFixed(2)} if won</span>
+                        <span className="text-xs italic text-muted">${potential.toFixed(2)} if won</span>
                       ) : (
-                        <>
-                          {p.status}
-                          {p.payout != null && ` — $${Number(p.payout).toFixed(2)}`}
-                        </>
+                        p.payout != null && (
+                          <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>
+                        )
                       )}
+                      <StatusPill status={p.status} />
                     </span>
                   </div>
                   <div className="mt-2 flex flex-col gap-1">
@@ -149,7 +144,7 @@ export default async function MyBetsPage() {
                           </span>{" "}
                           vs {leg.opponent_name}
                         </span>
-                        <span className={`capitalize ${STATUS_STYLE[leg.status]}`}>{leg.status}</span>
+                        <StatusPill status={leg.status} />
                       </div>
                     ))}
                   </div>

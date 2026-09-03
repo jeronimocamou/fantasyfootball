@@ -4,6 +4,7 @@ import BetForm from "@/components/BetForm";
 import ParlayToggle from "@/components/ParlayToggle";
 import ParlaySlip from "@/components/ParlaySlip";
 import { ParlayProvider } from "@/components/ParlayContext";
+import StatusPill from "@/components/StatusPill";
 
 const SEASON = 2026;
 
@@ -83,19 +84,9 @@ export default async function BoardPage() {
 
             return (
               <div key={line.id} className="rounded-lg border border-border-color bg-surface p-4">
-                <div className="mb-3 flex items-center justify-between text-xs text-muted">
-                  <span>{isOwnMatchup ? "Your matchup" : ""}</span>
-                  <span
-                    className={
-                      line.status === "open"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : line.status === "locked"
-                          ? "text-amber-600 dark:text-amber-400"
-                          : "text-muted"
-                    }
-                  >
-                    {STATUS_LABEL[line.status]}
-                  </span>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs text-muted">{isOwnMatchup ? "Your matchup" : ""}</span>
+                  <StatusPill status={line.status} label={STATUS_LABEL[line.status]} />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-1">

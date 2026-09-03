@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f7f5;
-  --surface: #ffffff;
-  --foreground: #18181b;
-  --muted: #71717a;
-  --border-color: #e4e4e7;
-  --accent: #4f46e5;
-  --accent-foreground: #ffffff;
-  --accent-soft: #eef2ff;
+  /* Parchment/ledger light mode — warm, matte, not pure white or grey */
+  --background: #efede6;
+  --surface: #fbfaf6;
+  --foreground: #211f1a;
+  --muted: #726f62;
+  --border-color: #ddd9cc;
+  --accent: #9c6a2e;
+  --accent-foreground: #fbf6ec;
+  --accent-soft: #f1e4ce;
 }
 
 @theme inline {
@@ -20,25 +21,37 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-work-sans);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b0b0d;
-    --surface: #17171a;
-    --foreground: #f4f4f5;
-    --muted: #a1a1aa;
-    --border-color: #2a2a2e;
-    --accent: #818cf8;
-    --accent-foreground: #0b0b0d;
-    --accent-soft: #1e1b4b;
+    /* Dark leather/wood, not pure black */
+    --background: #17140f;
+    --surface: #201c15;
+    --foreground: #f0ebdd;
+    --muted: #a79d89;
+    --border-color: #332c20;
+    --accent: #d0954b;
+    --accent-foreground: #17120a;
+    --accent-soft: #2e2317;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display), Georgia, serif;
+  text-wrap: balance;
+}
+
+.tabular-nums,
+table {
+  font-variant-numeric: tabular-nums;
 }
