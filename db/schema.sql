@@ -5,8 +5,13 @@ CREATE TABLE IF NOT EXISTS managers (
     espn_team_id  INTEGER NOT NULL,        -- current-season ESPN team id
     display_name  TEXT NOT NULL,
     team_name     TEXT NOT NULL,
+    pin           TEXT,                    -- 4-digit PIN, set on first login; NULL = not claimed yet
     UNIQUE (espn_team_id)
 );
+
+-- ALTER for existing databases (the CREATE TABLE above only fires on a
+-- brand-new install; this schema file is re-run against the live DB too).
+ALTER TABLE managers ADD COLUMN IF NOT EXISTS pin TEXT;
 
 -- One row per real matchup per week. Spread is always relative to team_a:
 -- positive spread means team_a is the underdog (getting points), negative

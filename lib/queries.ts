@@ -19,6 +19,47 @@ export async function getManagers(): Promise<Manager[]> {
   return rows;
 }
 
+// ---- Per-manager PIN identity ----
+// A manager's first login claims their name by setting a PIN; every login
+// after that requires it. This is what actually stops one player from
+// picking another player's name and betting as them — the old picker just
+// wrote an unsigned cookie client-side with no check at all.
+
+export async function getManagerHasPin(managerId: number): Promise<boolean> {
+  const { rows } = await getPool().query(`SELECT pin FROM managers WHERE id=$1`, [managerId]);
+  return rows[0]?.pin != null;
+}
+
+export type IdentityLoginResult = { ok: true } | { ok: false; error: string };
+
+export async function loginOrClaimPin(
+  managerId: number,
+  pin: string,
+  confirmPin?: string
+): Promise<IdentityLoginResult> {
+  if (!/^\d{4}$/.test(pin)) return { ok: false, error: "PIN must be 4 digits." };
+
+  const { rows } = await getPool().query(`SELECT pin FROM managers WHERE id=$1`, [managerId]);
+  if (!rows[0]) return { ok: false, error: "Manager not found." };
+  const existingPin: string | null = rows[0].pin;
+
+  if (existingPin == null) {
+    if (pin !== confirmPin) return { ok: false, error: "PINs don't match." };
+    await getPool().query(`UPDATE managers SET pin=$1 WHERE id=$2`, [pin, managerId]);
+    return { ok: true };
+  }
+
+  if (existingPin !== pin) return { ok: false, error: "Incorrect PIN." };
+  return { ok: true };
+}
+
+// House-only: clears a manager's PIN so they can claim it again with a new
+// one, for when someone forgets theirs.
+export async function resetManagerPin(managerId: number): Promise<AdminResult> {
+  await getPool().query(`UPDATE managers SET pin=NULL WHERE id=$1`, [managerId]);
+  return { ok: true };
+}
+
 // Keeps `managers` in sync with ESPN's team list/names, and lets the
 // operator assign real display names once via UPDATE — this only touches
 // team_name and inserts newly-seen teams, never overwrites display_name.

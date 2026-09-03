@@ -10,7 +10,7 @@ A play-money sportsbook for the Crackyard fantasy football league (ESPN league `
 2. The spread is just the projected-point gap between the two teams (e.g. proj 130 vs proj 125 → the 130 team is a 5.0-point favorite). Odds are fixed at standard `-110` on both sides.
 3. A line stays **open** for betting until any live scoring shows up that week (i.e. kickoff of the first game), at which point it **locks** — the projection snapshot at lock time is what settles bets, not the live-updating number.
 4. Once ESPN reports a decided winner for a matchup, the line goes **final** and all pending bets on it are graded against the spread (standard against-the-spread math, including pushes) and paid out at `-110`.
-5. Members "log in" by picking their name from a dropdown (no password — this is a private tool for ~10 known people) and place bets on the board.
+5. Members "log in" by picking their name from a dropdown, then a 4-digit PIN — the first time picking a name claims it with a PIN of your choosing, every login after that requires it. This is what actually stops one player from betting as another; the session cookie is server-signed (`lib/session.ts`), not just a plain value the client could set itself.
 
 ## Stack
 
@@ -18,7 +18,8 @@ A play-money sportsbook for the Crackyard fantasy football league (ESPN league `
 - `lib/betting.ts` — pure spread/odds/grading math, no I/O
 - `lib/espn.ts` — pulls live projected + actual team totals from ESPN
 - `lib/queries.ts` — the sync algorithm (open → locked → final) and all bet/leaderboard queries
-- `lib/identity.ts` / `identityCookie.ts` — the cookie-based "who am I" picker
+- `lib/identity.ts` / `identityCookie.ts` — reads/names the signed session cookie
+- `lib/session.ts` — HMAC-signs a manager id into the cookie value (`SESSION_SECRET`), so it can't be forged client-side
 
 ## Setup
 
@@ -53,6 +54,10 @@ regular betting — the admin session is an httpOnly cookie set by
 identity cookie it can't be forged via `document.cookie` in devtools.
 Requires `ADMIN_PIN` and `ADMIN_SESSION_SECRET` to be set; without them
 the login route just rejects everything.
+
+The dashboard also has a **Reset PIN** button per manager, for anyone who
+forgets theirs — it clears their PIN so the next login prompts them to
+claim a new one, same as the very first time.
 
 ## Renaming managers
 

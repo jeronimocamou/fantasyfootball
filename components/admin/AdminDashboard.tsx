@@ -58,6 +58,16 @@ export default function AdminDashboard({
     router.refresh();
   }
 
+  async function resetPin(managerId: number, name: string) {
+    if (!confirm(`Reset ${name}'s PIN? They'll need to set a new one next time they log in.`)) return;
+    await fetch("/api/admin/reset-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ managerId }),
+    });
+    router.refresh();
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-baseline justify-between">
@@ -82,11 +92,19 @@ export default function AdminDashboard({
                 <th className="px-4 py-3 text-right">Allowance</th>
                 <th className="px-4 py-3 text-right">Remaining</th>
                 <th className="px-4 py-3">Adjust</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {managers.map((m) => (
-                <ManagerRow key={m.manager_id} manager={m} season={season} week={week} onDone={() => router.refresh()} />
+                <ManagerRow
+                  key={m.manager_id}
+                  manager={m}
+                  season={season}
+                  week={week}
+                  onDone={() => router.refresh()}
+                  onResetPin={() => resetPin(m.manager_id, m.display_name)}
+                />
               ))}
             </tbody>
           </table>
@@ -192,11 +210,13 @@ function ManagerRow({
   season,
   week,
   onDone,
+  onResetPin,
 }: {
   manager: ManagerWeekSummary;
   season: number;
   week: number;
   onDone: () => void;
+  onResetPin: () => void;
 }) {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -252,6 +272,11 @@ function ManagerRow({
             Apply
           </button>
         </div>
+      </td>
+      <td className="px-4 py-3">
+        <button onClick={onResetPin} className="text-xs text-muted hover:text-red-600 dark:hover:text-red-400">
+          Reset PIN
+        </button>
       </td>
     </tr>
   );
