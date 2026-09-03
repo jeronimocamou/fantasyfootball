@@ -101,6 +101,7 @@ export default async function BoardPage() {
                       sideManagerId={line.team_a_id}
                       sideLabel={line.team_a_name}
                       maxAmount={remaining}
+                      odds={line.odds}
                     />
                   )}
                 </div>
@@ -122,6 +123,7 @@ export default async function BoardPage() {
                       sideManagerId={line.team_b_id}
                       sideLabel={line.team_b_name}
                       maxAmount={remaining}
+                      odds={line.odds}
                     />
                   )}
                 </div>

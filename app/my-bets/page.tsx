@@ -1,5 +1,6 @@
 import { getManagerBets, getManagers } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
+import { profitForOdds } from "@/lib/betting";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "text-muted",
@@ -59,18 +60,27 @@ export default async function MyBetsPage() {
               </tr>
             </thead>
             <tbody>
-              {bets.map((b) => (
-                <tr key={b.id} className="border-t border-border-color/60">
-                  <td className="px-4 py-3 text-muted">Wk {b.week}</td>
-                  <td className="px-4 py-3 font-medium">{b.side_name}</td>
-                  <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
-                  <td className={`px-4 py-3 text-right capitalize ${STATUS_STYLE[b.status]}`}>{b.status}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {b.payout != null ? `$${Number(b.payout).toFixed(2)}` : "—"}
-                  </td>
-                </tr>
-              ))}
+              {bets.map((b) => {
+                const potentialPayout = Number(b.amount) + profitForOdds(Number(b.amount), b.odds);
+                return (
+                  <tr key={b.id} className="border-t border-border-color/60">
+                    <td className="px-4 py-3 text-muted">Wk {b.week}</td>
+                    <td className="px-4 py-3 font-medium">{b.side_name}</td>
+                    <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
+                    <td className={`px-4 py-3 text-right capitalize ${STATUS_STYLE[b.status]}`}>{b.status}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {b.status === "pending" ? (
+                        <span className="italic text-muted">${potentialPayout.toFixed(2)} if won</span>
+                      ) : b.payout != null ? (
+                        `$${Number(b.payout).toFixed(2)}`
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
