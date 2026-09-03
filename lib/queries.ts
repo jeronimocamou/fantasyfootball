@@ -1,8 +1,9 @@
 import { getPool } from "./pg";
 import { computeLine, gradeSide, profitForOdds, DEFAULT_ODDS } from "./betting";
 import { fetchLeagueLive, type EspnTeam } from "./espn";
+import { WEEKLY_ALLOWANCE, MIN_BET } from "./bettingConstants";
 
-export const WEEKLY_ALLOWANCE = 50;
+export { WEEKLY_ALLOWANCE, MIN_BET };
 
 export type Manager = {
   id: number;
@@ -218,7 +219,7 @@ export async function placeBet(
   sideManagerId: number,
   amount: number
 ): Promise<PlaceBetResult> {
-  if (amount <= 0) return { ok: false, error: "Bet amount must be positive." };
+  if (amount < MIN_BET) return { ok: false, error: `Minimum bet is $${MIN_BET}.` };
 
   const { rows: lineRows } = await getPool().query(`SELECT * FROM weekly_lines WHERE id=$1`, [lineId]);
   const line = lineRows[0] as LineRow | undefined;

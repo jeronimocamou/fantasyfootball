@@ -1,4 +1,4 @@
-import { getWeekBoard, getCurrentWeek, getManagerWeekSpent, WEEKLY_ALLOWANCE } from "@/lib/queries";
+import { getWeekBoard, getCurrentWeek, getManagerWeekSpent, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import BetForm from "@/components/BetForm";
 
@@ -42,7 +42,8 @@ export default async function BoardPage() {
           <h1 className="text-2xl font-bold tracking-tight">Week {week} Board</h1>
           <p className="mt-1 text-sm text-muted">
             Spreads set from ESPN&apos;s live projected totals. Lines lock at
-            kickoff and go final once ESPN calls the matchup.
+            kickoff and go final once ESPN calls the matchup. ${MIN_BET} minimum
+            bet, ${WEEKLY_ALLOWANCE} allowance per week.
           </p>
         </div>
         {currentManagerId && (
@@ -58,13 +59,19 @@ export default async function BoardPage() {
           Pick your name in the top right to place bets.
         </p>
       )}
+      {currentManagerId != null && remaining > 0 && remaining < MIN_BET && (
+        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          Only ${remaining.toFixed(2)} left this week — below the ${MIN_BET} minimum, so betting is closed until next week.
+        </p>
+      )}
 
       <div className="flex flex-col gap-4">
         {lines.map((line) => {
           const aFav = Number(line.spread) < 0;
           const isOwnMatchup =
             currentManagerId === line.team_a_id || currentManagerId === line.team_b_id;
-          const canBet = currentManagerId != null && !isOwnMatchup && line.status === "open" && remaining > 0;
+          const canBet =
+            currentManagerId != null && !isOwnMatchup && line.status === "open" && remaining >= MIN_BET;
 
           return (
             <div key={line.id} className="rounded-lg border border-border-color bg-surface p-4">

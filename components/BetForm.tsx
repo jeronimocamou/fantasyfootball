@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { profitForOdds } from "@/lib/betting";
+import { MIN_BET } from "@/lib/bettingConstants";
 
 export default function BetForm({
   managerId,
@@ -31,9 +32,9 @@ export default function BetForm({
 
   async function submit() {
     const value = Number(amount);
-    if (!value || value <= 0) {
+    if (!value || value < MIN_BET) {
       setStatus("error");
-      setError("Enter an amount.");
+      setError(`Minimum bet is $${MIN_BET}.`);
       return;
     }
     setStatus("loading");
@@ -63,10 +64,10 @@ export default function BetForm({
         <span className="text-xs text-muted">$</span>
         <input
           type="number"
-          min={1}
+          min={MIN_BET}
           max={maxAmount}
           step={1}
-          placeholder="0"
+          placeholder={String(MIN_BET)}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           className="w-16 rounded-md border border-border-color bg-surface px-2 py-1 text-sm"
