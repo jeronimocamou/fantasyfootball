@@ -1,89 +1,135 @@
-import { getAllTimeStandings, getLeagueSummary } from "@/lib/db";
+import { getWeekBoard, getCurrentWeek, getManagerWeekSpent, WEEKLY_ALLOWANCE } from "@/lib/queries";
+import { getCurrentManagerId } from "@/lib/identity";
+import BetForm from "@/components/BetForm";
 
-export default function Home() {
-  const standings = getAllTimeStandings();
-  const summary = getLeagueSummary();
+const SEASON = 2026;
 
-  return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">All-Time Standings</h1>
-        <p className="mt-1 text-sm text-muted">
-          Every regular-season and playoff record, combined across all seasons.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Seasons" value={String(summary.completedSeasons)} />
-        <StatTile label="Games played" value={String(summary.totalGames)} />
-        <StatTile label="Titles awarded" value={String(summary.championshipsAwarded)} />
-        <StatTile
-          label="Reigning champ"
-          value={summary.reigningChampion?.display_name ?? "—"}
-          sub={summary.reigningChampion ? `${summary.reigningChampion.team_name}, ${summary.reigningChampion.season}` : undefined}
-        />
-      </div>
-
-      <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
-            <tr>
-              <th className="px-4 py-3">#</th>
-              <th className="px-4 py-3">Manager</th>
-              <th className="px-4 py-3 text-right">Seasons</th>
-              <th className="px-4 py-3 text-right">Record</th>
-              <th className="px-4 py-3 text-right">Win %</th>
-              <th className="px-4 py-3 text-right">Points For</th>
-              <th className="px-4 py-3 text-right">Points Against</th>
-              <th className="px-4 py-3 text-right">🏆</th>
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((o, i) => {
-              const games = o.wins + o.losses + o.ties;
-              const winPct = games > 0 ? o.wins / games : 0;
-              return (
-                <tr
-                  key={o.member_id}
-                  className={`border-t border-border-color/60 ${i < 3 ? "bg-accent-soft/40" : ""}`}
-                >
-                  <td className="px-4 py-3 text-muted">
-                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
-                  </td>
-                  <td className="px-4 py-3 font-medium">{o.display_name}</td>
-                  <td className="px-4 py-3 text-right">{o.seasons_played}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {o.wins}-{o.losses}
-                    {o.ties ? `-${o.ties}` : ""}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {(winPct * 100).toFixed(1)}%
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {o.points_for.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {o.points_against.toFixed(1)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {o.championships > 0 ? o.championships : ""}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+function formatSpread(spread: number): string {
+  if (spread === 0) return "PK";
+  return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
 }
 
-function StatTile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open",
+  locked: "Locked",
+  final: "Final",
+};
+
+export default async function BoardPage() {
+  const currentManagerId = await getCurrentManagerId();
+  const week = await getCurrentWeek(SEASON);
+
+  if (!week) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-bold tracking-tight">Board</h1>
+        <p className="text-sm text-muted">
+          No lines yet — the sportsbook syncs from ESPN once matchups and
+          projections are available for the season.
+        </p>
+      </div>
+    );
+  }
+
+  const lines = await getWeekBoard(SEASON, week);
+  const spent = currentManagerId ? await getManagerWeekSpent(currentManagerId, SEASON, week) : 0;
+  const remaining = WEEKLY_ALLOWANCE - spent;
+
   return (
-    <div className="rounded-lg bg-surface border border-border-color p-4">
-      <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 truncate text-xl font-bold">{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-muted">{sub}</div>}
+    <div className="flex flex-col gap-6">
+      <div className="flex items-baseline justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Week {week} Board</h1>
+          <p className="mt-1 text-sm text-muted">
+            Spreads set from ESPN&apos;s live projected totals. Lines lock at
+            kickoff and go final once ESPN calls the matchup.
+          </p>
+        </div>
+        {currentManagerId && (
+          <div className="text-right text-sm">
+            <div className="text-xs uppercase tracking-wide text-muted">Remaining this week</div>
+            <div className="text-lg font-bold">${remaining.toFixed(2)}</div>
+          </div>
+        )}
+      </div>
+
+      {!currentManagerId && (
+        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          Pick your name in the top right to place bets.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {lines.map((line) => {
+          const aFav = Number(line.spread) < 0;
+          const isOwnMatchup =
+            currentManagerId === line.team_a_id || currentManagerId === line.team_b_id;
+          const canBet = currentManagerId != null && !isOwnMatchup && line.status === "open" && remaining > 0;
+
+          return (
+            <div key={line.id} className="rounded-lg border border-border-color bg-surface p-4">
+              <div className="mb-3 flex items-center justify-between text-xs text-muted">
+                <span>{isOwnMatchup ? "Your matchup" : ""}</span>
+                <span
+                  className={
+                    line.status === "open"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : line.status === "locked"
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-muted"
+                  }
+                >
+                  {STATUS_LABEL[line.status]}
+                </span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-medium">{line.team_a_name}</span>
+                    <span className={`tabular-nums ${aFav ? "font-semibold" : ""}`}>
+                      {formatSpread(Number(line.spread))} ({line.odds})
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted">{line.team_a_team}</div>
+                  {line.status === "final" && (
+                    <div className="text-sm tabular-nums">{Number(line.actual_a).toFixed(1)} pts</div>
+                  )}
+                  {canBet && (
+                    <BetForm
+                      managerId={currentManagerId!}
+                      lineId={line.id}
+                      sideManagerId={line.team_a_id}
+                      sideLabel={line.team_a_name}
+                      maxAmount={remaining}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1 sm:border-l sm:border-border-color sm:pl-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-medium">{line.team_b_name}</span>
+                    <span className={`tabular-nums ${!aFav ? "font-semibold" : ""}`}>
+                      {formatSpread(-Number(line.spread))} ({line.odds})
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted">{line.team_b_team}</div>
+                  {line.status === "final" && (
+                    <div className="text-sm tabular-nums">{Number(line.actual_b).toFixed(1)} pts</div>
+                  )}
+                  {canBet && (
+                    <BetForm
+                      managerId={currentManagerId!}
+                      lineId={line.id}
+                      sideManagerId={line.team_b_id}
+                      sideLabel={line.team_b_name}
+                      maxAmount={remaining}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

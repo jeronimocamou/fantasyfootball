@@ -1,44 +1,56 @@
-# Crackyard FFL Stats
+# Crackyard Sportsbook
 
-Pulls historical data for ESPN Fantasy Football league `1829348794` (2021–present) into a local SQLite database, for building stats/analytics on top of.
+A play-money sportsbook for the Crackyard fantasy football league (ESPN league `1829348794`). Every week, spreads are set from ESPN's own live projected team totals — no lines are set by hand. League members each get $50 in weekly (non-real) credit to bet on any matchup they aren't personally playing in.
+
+**Nothing here is real money.** It's a private betting-line side-game for a friend group, settled entirely in play-money credits.
+
+## How it works
+
+1. A sync job (`POST /api/sync`) pulls the current week's matchups from ESPN, using `totalProjectedPoints` — ESPN's own live projection, computed per team.
+2. The spread is just the projected-point gap between the two teams (e.g. proj 130 vs proj 125 → the 130 team is a 5.0-point favorite). Odds are fixed at standard `-110` on both sides.
+3. A line stays **open** for betting until any live scoring shows up that week (i.e. kickoff of the first game), at which point it **locks** — the projection snapshot at lock time is what settles bets, not the live-updating number.
+4. Once ESPN reports a decided winner for a matchup, the line goes **final** and all pending bets on it are graded against the spread (standard against-the-spread math, including pushes) and paid out at `-110`.
+5. Members "log in" by picking their name from a dropdown (no password — this is a private tool for ~10 known people) and place bets on the board.
+
+## Stack
+
+- Next.js 16 (App Router), Postgres (Vercel Postgres / Neon)
+- `lib/betting.ts` — pure spread/odds/grading math, no I/O
+- `lib/espn.ts` — pulls live projected + actual team totals from ESPN
+- `lib/queries.ts` — the sync algorithm (open → locked → final) and all bet/leaderboard queries
+- `lib/identity.ts` / `identityCookie.ts` — the cookie-based "who am I" picker
 
 ## Setup
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # fill in ESPN_S2 and ESPN_SWID (see below)
+npm install
+cp .env.example .env   # fill in ESPN_S2/ESPN_SWID (see below) and POSTGRES_URL
+node scripts/apply-schema.mjs   # creates managers / weekly_lines / bets tables
 ```
 
-Your league is private, so ESPN requires two auth cookies from a logged-in browser session:
+ESPN auth (same as before): log into [fantasy.espn.com](https://fantasy.espn.com), DevTools → Application → Cookies → `https://fantasy.espn.com`, copy `espn_s2` and `SWID`.
 
-1. Log into [fantasy.espn.com](https://fantasy.espn.com) and open the league.
-2. DevTools → Application/Storage → Cookies → `https://fantasy.espn.com`.
-3. Copy `espn_s2` and `SWID` into `.env`.
+Postgres: create a database (Vercel dashboard → Storage → Postgres, or any Neon/Postgres instance) and put its connection string in `POSTGRES_URL`.
 
-## Pull the data
+## Running
 
 ```bash
-python3 scripts/fetch_espn_data.py            # all seasons, 2021-2026
-python3 scripts/fetch_espn_data.py --start 2024 --end 2025   # subset
+npm run dev
+curl -X POST http://localhost:3000/api/sync   # pull current week + settle any finished matchups
 ```
 
-Re-running is safe — every table is upserted on its primary key, so it just refreshes.
+In production, `vercel.json` configures a daily cron hitting `/api/sync`. Set a `CRON_SECRET` env var to have Vercel authenticate those calls automatically (and to require the same value as `?secret=` or `X-Sync-Secret` on manual calls). Because Vercel Cron is capped at once/day on the Hobby plan, hit `/api/sync` manually around kickoff and after Monday Night Football if you want tighter lock/settle timing.
 
-## Database
+## Renaming managers
 
-SQLite file at `fantasyfootball.db`, schema in [scripts/schema.sql](scripts/schema.sql):
+ESPN team names change whenever an owner renames their team; `display_name` doesn't follow automatically (by design, so a manager's identity is stable even if they rename their team). Edit `scripts/rename-managers.mjs` and re-run it to fix a name.
 
-- **members** — league owners (stable ESPN member GUID → display name)
-- **teams** — one row per team per season: name, owner, final standing, W/L/T, points for/against
-- **matchups** — every regular-season and playoff matchup, per week, with scores
-- **players** — NFL player ID → name/position/pro team, for resolving draft picks
-- **draft_picks** — full draft board per season: pick number, team, player, keeper flag, auction bid (if applicable)
+## Legacy: historical stats data
 
-2026 rows reflect the preseason state (draft not yet played, so `draft_picks.player_id = -1` as placeholders) — rerun the script after draft day to fill them in.
+This repo used to host a full stats/analytics site (standings, records, draft history, luck index, etc.) built from a SQLite pull of the league's full 2021–2026 history. That UI has been replaced by the sportsbook above, but the underlying data pipeline is still here and untouched:
 
-## Notes
+- `scripts/fetch_espn_data.py` — pulls full season history into `fantasyfootball.db` (SQLite)
+- `scripts/apply_identity_overrides.py` — resolves ESPN's anonymized display names to real ones
+- `fantasyfootball.db` — the pulled data itself
 
-- `owners` in ESPN's API is a list of GUIDs; this schema currently keeps only `primaryOwner` on `teams`. Fine for single-manager teams; revisit if any team has co-managers you want tracked separately.
-- Weekly/player-level lineups (who started/benched each week) aren't pulled yet — only final matchup scores. Add an `mBoxscore` pull per week if you want that level of detail later.
+Neither is used by the live site anymore, but they're left in place in case that data or those scripts are useful again later.
