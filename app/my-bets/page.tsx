@@ -9,6 +9,11 @@ const STATUS_STYLE: Record<string, string> = {
   push: "text-muted",
 };
 
+function formatSpread(spread: number): string {
+  if (spread === 0) return "PK";
+  return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+}
+
 export default async function MyBetsPage() {
   const managerId = await getCurrentManagerId();
 
@@ -134,10 +139,14 @@ export default async function MyBetsPage() {
                     {p.legs.map((leg) => (
                       <div
                         key={leg.line_id}
-                        className="flex items-center justify-between text-xs text-muted"
+                        className="flex items-center justify-between text-xs"
                       >
-                        <span>
-                          Wk {leg.week} — {leg.side_name} vs {leg.opponent_name}
+                        <span className="text-muted">
+                          Wk {leg.week} —{" "}
+                          <span className="font-semibold text-foreground">
+                            {leg.side_name} {formatSpread(Number(leg.spread_for_side))}
+                          </span>{" "}
+                          vs {leg.opponent_name}
                         </span>
                         <span className={`capitalize ${STATUS_STYLE[leg.status]}`}>{leg.status}</span>
                       </div>

@@ -379,6 +379,7 @@ export type ParlayHistoryRow = {
     line_id: number;
     side_name: string;
     opponent_name: string;
+    spread_for_side: string;
     odds: number;
     status: string;
     season: number;
@@ -396,7 +397,8 @@ export async function getManagerParlays(managerId: number): Promise<ParlayHistor
   const { rows: legs } = await getPool().query(
     `SELECT pl.parlay_id, pl.line_id, pl.odds, pl.status, wl.season, wl.week,
             side.display_name AS side_name,
-            CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name
+            CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name,
+            CASE WHEN pl.side_manager_id = wl.team_a_id THEN wl.spread ELSE -wl.spread END AS spread_for_side
      FROM parlay_legs pl
      JOIN weekly_lines wl ON wl.id = pl.line_id
      JOIN managers side ON side.id = pl.side_manager_id
