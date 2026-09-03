@@ -1,6 +1,6 @@
 # Crackyard Sportsbook
 
-A play-money sportsbook for the Crackyard fantasy football league (ESPN league `1829348794`). Every week, spreads are set from ESPN's own live projected team totals — no lines are set by hand. League members each get $50 in weekly (non-real) credit to bet on any matchup they aren't personally playing in.
+A play-money sportsbook for the Crackyard fantasy football league (ESPN league `1829348794`). Every week, spreads are set from ESPN's own live projected team totals — no lines are set by hand. League members each get a weekly (non-real) credit allowance (`WEEKLY_ALLOWANCE` in `lib/bettingConstants.ts`, currently $20) to bet straight or as a parlay on any matchup they aren't personally playing in.
 
 **Nothing here is real money.** It's a private betting-line side-game for a friend group, settled entirely in play-money credits.
 
@@ -40,6 +40,19 @@ curl -X POST http://localhost:3000/api/sync   # pull current week + settle any f
 ```
 
 In production, `vercel.json` configures a daily cron hitting `/api/sync`. Set a `CRON_SECRET` env var to have Vercel authenticate those calls automatically (and to require the same value as `?secret=` or `X-Sync-Secret` on manual calls). Because Vercel Cron is capped at once/day on the Hobby plan, hit `/api/sync` manually around kickoff and after Monday Night Football if you want tighter lock/settle timing.
+
+## House dashboard
+
+`/admin` is a PIN-gated view for running the book: everyone's balances
+and bets for the current week, cancelling a pending bet or parlay, and
+crediting/debiting a manager's weekly allowance (kept as a ledger in
+`balance_adjustments`, not a mutated balance field, so there's an audit
+trail). It's a separate auth path from the casual name-picker used for
+regular betting — the admin session is an httpOnly cookie set by
+`POST /api/admin/login` after checking `ADMIN_PIN`, so unlike the
+identity cookie it can't be forged via `document.cookie` in devtools.
+Requires `ADMIN_PIN` and `ADMIN_SESSION_SECRET` to be set; without them
+the login route just rejects everything.
 
 ## Renaming managers
 

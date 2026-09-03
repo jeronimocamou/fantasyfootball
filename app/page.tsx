@@ -1,4 +1,4 @@
-import { getWeekBoard, getCurrentWeek, getManagerWeekSpent, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
+import { getWeekBoard, getCurrentWeek, getManagerWeekRemaining, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import BetForm from "@/components/BetForm";
 import ParlayToggle from "@/components/ParlayToggle";
@@ -35,8 +35,9 @@ export default async function BoardPage() {
   }
 
   const lines = await getWeekBoard(SEASON, week);
-  const spent = currentManagerId ? await getManagerWeekSpent(currentManagerId, SEASON, week) : 0;
-  const remaining = WEEKLY_ALLOWANCE - spent;
+  const remaining = currentManagerId
+    ? await getManagerWeekRemaining(currentManagerId, SEASON, week)
+    : 0;
 
   return (
     <ParlayProvider>

@@ -7,6 +7,7 @@ const STATUS_STYLE: Record<string, string> = {
   won: "text-emerald-600 dark:text-emerald-400",
   lost: "text-red-600 dark:text-red-400",
   push: "text-muted",
+  cancelled: "text-muted line-through",
 };
 
 function formatSpread(spread: number): string {

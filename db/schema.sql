@@ -66,9 +66,24 @@ CREATE TABLE IF NOT EXISTS parlay_legs (
     UNIQUE (parlay_id, line_id)
 );
 
+-- House-managed adjustments to a manager's weekly allowance (bonus credit
+-- or a penalty), on top of the flat per-week base. Positive = added,
+-- negative = deducted. Kept as a ledger (not a mutated balance field) so
+-- there's an audit trail of who adjusted what and why.
+CREATE TABLE IF NOT EXISTS balance_adjustments (
+    id          SERIAL PRIMARY KEY,
+    manager_id  INTEGER NOT NULL REFERENCES managers(id),
+    season      INTEGER NOT NULL,
+    week        INTEGER NOT NULL,
+    amount      NUMERIC(6,2) NOT NULL,
+    note        TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_season_week ON weekly_lines(season, week);
 CREATE INDEX IF NOT EXISTS idx_bets_manager ON bets(manager_id);
 CREATE INDEX IF NOT EXISTS idx_bets_line ON bets(line_id);
 CREATE INDEX IF NOT EXISTS idx_parlays_manager ON parlays(manager_id);
 CREATE INDEX IF NOT EXISTS idx_parlay_legs_parlay ON parlay_legs(parlay_id);
 CREATE INDEX IF NOT EXISTS idx_parlay_legs_line ON parlay_legs(line_id);
+CREATE INDEX IF NOT EXISTS idx_balance_adj_manager_week ON balance_adjustments(manager_id, season, week);
