@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Work_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
+import Decor from "@/components/Decor";
 import { getManagers, type Manager } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import "./globals.css";
@@ -49,6 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${fraunces.variable} ${workSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <Decor />
         <Nav managers={managers} currentManagerId={currentManagerId} />
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
           {dbError ? (
