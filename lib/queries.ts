@@ -2,7 +2,7 @@ import { getPool } from "./pg";
 import { computeLine, gradeSide, profitForOdds, parlayPayout, DEFAULT_ODDS } from "./betting";
 import { fetchLeagueLive, type EspnTeam } from "./espn";
 import { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS } from "./bettingConstants";
-import { spinReels, gradeSpin, SLOT_EMOJI, type SlotSymbol } from "./slots";
+import { spinReels, gradeSpin, SLOT_EMOJI, SLOT_BET_AMOUNT, type SlotSymbol } from "./slots";
 
 export { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS };
 
@@ -334,6 +334,7 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
          COALESCE(SUM(CASE
            WHEN status = 'won' THEN payout - amount
            WHEN status = 'lost' THEN -amount
+           WHEN status = 'spin' THEN payout - amount
            ELSE 0
          END), 0) AS balance
        FROM (
@@ -348,9 +349,12 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
          UNION ALL
          -- Slot spins resolve instantly, so they only ever land in
          -- balance, never pending_at_risk — there's no in-between state.
-         SELECT s.amount,
-                CASE WHEN s.payout > s.amount THEN 'won' WHEN s.payout < s.amount THEN 'lost' ELSE 'push' END,
-                s.payout
+         -- Always tagged 'spin' (not won/lost/push) so its balance
+         -- contribution is always payout - amount, which is correct for
+         -- every outcome including a partial return like two-of-a-kind's
+         -- half-back — unlike bets/parlays, a spin's payout isn't always
+         -- either 0 or the full stake.
+         SELECT s.amount, 'spin', s.payout
          FROM slot_spins s
          WHERE s.manager_id = $1 AND s.season = $2 AND s.week = $3
        ) combined`,
@@ -367,18 +371,16 @@ export type SlotSpinResult =
   | { ok: true; reels: SlotSymbol[]; amount: number; payout: number; credit: number }
   | { ok: false; error: string };
 
-// A spin settles in the same call that places it — no pending state, so
-// the credit check here is the only gate (same amount-vs-credit rule as
-// placeBet/placeParlay below).
+// Every pull costs a fixed SLOT_BET_AMOUNT — an old-school machine takes
+// one token, not a variable wager — so there's no client-supplied amount
+// to validate at all, only a credit check against that fixed cost. A spin
+// settles in the same call that places it — no pending state.
 export async function playSlotSpin(
   managerId: number,
   season: number,
-  week: number,
-  amount: number
+  week: number
 ): Promise<SlotSpinResult> {
-  if (!Number.isFinite(amount) || amount < MIN_BET) {
-    return { ok: false, error: `Minimum spin is $${MIN_BET}.` };
-  }
+  const amount = SLOT_BET_AMOUNT;
   const { credit } = await getManagerWeekMoney(managerId, season, week);
   if (amount > credit + 1e-9) {
     return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };

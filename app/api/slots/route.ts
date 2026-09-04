@@ -1,21 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { playSlotSpin, getCurrentWeek } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 
 const SEASON = 2026;
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   // managerId comes from the verified session, never from the request body —
-  // same reasoning as /api/bets and /api/parlays.
+  // same reasoning as /api/bets and /api/parlays. There's no amount to read
+  // from the body either: every pull costs the same fixed token.
   const managerId = await getCurrentManagerId();
   if (managerId == null) {
     return NextResponse.json({ ok: false, error: "Not logged in." }, { status: 401 });
-  }
-
-  const body = await req.json();
-  const { amount } = body ?? {};
-  if (typeof amount !== "number") {
-    return NextResponse.json({ ok: false, error: "Missing or invalid amount." }, { status: 400 });
   }
 
   const week = await getCurrentWeek(SEASON);
@@ -23,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "No week open yet." }, { status: 400 });
   }
 
-  const result = await playSlotSpin(managerId, SEASON, week, amount);
+  const result = await playSlotSpin(managerId, SEASON, week);
   if (!result.ok) {
     return NextResponse.json(result, { status: 400 });
   }
