@@ -3,6 +3,7 @@ import { getCurrentManagerId } from "@/lib/identity";
 import { profitForOdds, parlayPayout } from "@/lib/betting";
 import StatusPill from "@/components/StatusPill";
 import CancelledDisclosure from "@/components/CancelledDisclosure";
+import RiskSummary from "@/components/RiskSummary";
 
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
@@ -135,6 +136,21 @@ export default async function MyBetsPage() {
     }, 0);
   const net = betsNet + parlaysNet;
 
+  const pendingBets = bets.filter((b) => b.status === "pending");
+  const pendingParlays = parlays.filter((p) => p.status === "pending");
+  const atRisk =
+    pendingBets.reduce((sum, b) => sum + Number(b.amount), 0) +
+    pendingParlays.reduce((sum, p) => sum + Number(p.amount), 0);
+  const toWin =
+    pendingBets.reduce((sum, b) => sum + profitForOdds(Number(b.amount), b.odds), 0) +
+    pendingParlays.reduce((sum, p) => {
+      const payout = parlayPayout(
+        Number(p.amount),
+        p.legs.filter((l) => l.status !== "lost").map((l) => l.odds)
+      );
+      return sum + (payout != null ? payout - Number(p.amount) : 0);
+    }, 0);
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-baseline justify-between">
@@ -183,6 +199,8 @@ export default async function MyBetsPage() {
           </>
         )}
       </section>
+
+      <RiskSummary atRisk={atRisk} toWin={toWin} />
     </div>
   );
 }

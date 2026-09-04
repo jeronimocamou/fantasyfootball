@@ -662,7 +662,7 @@ export type AdminParlayRow = {
   amount: string;
   status: string;
   payout: string | null;
-  legs: { side_name: string; opponent_name: string; spread_for_side: string; status: string; week: number }[];
+  legs: { side_name: string; opponent_name: string; spread_for_side: string; odds: number; status: string; week: number }[];
 };
 
 export async function getAllParlaysForWeek(season: number, week: number): Promise<AdminParlayRow[]> {
@@ -679,7 +679,7 @@ export async function getAllParlaysForWeek(season: number, week: number): Promis
   if (parlays.length === 0) return [];
 
   const { rows: legs } = await getPool().query(
-    `SELECT pl.parlay_id, pl.status, wl.week,
+    `SELECT pl.parlay_id, pl.odds, pl.status, wl.week,
             side.display_name AS side_name,
             CASE WHEN pl.side_manager_id = wl.team_a_id THEN mb.display_name ELSE ma.display_name END AS opponent_name,
             CASE WHEN pl.side_manager_id = wl.team_a_id THEN wl.spread ELSE -wl.spread END AS spread_for_side
