@@ -290,6 +290,23 @@ export async function getCurrentWeek(season: number): Promise<number | null> {
   return rows[0]?.w ?? null;
 }
 
+// True once any matchup for this week has left "open" — which, since a
+// manager's roster spans NFL games all week, first happens as soon as one
+// of their players takes the field, typically Thursday night. From that
+// point on we freeze ALL new betting for the week (every remaining
+// matchup, parlays, and futures), not just the specific matchup that
+// tripped the lock — a matchup with only Sunday/Monday players would
+// otherwise stay bettable well after the week's action has already begun.
+export async function isWeekLocked(season: number, week: number): Promise<boolean> {
+  const { rows } = await getPool().query(
+    `SELECT EXISTS (
+       SELECT 1 FROM weekly_lines WHERE season = $1 AND week = $2 AND status != 'open'
+     ) AS locked`,
+    [season, week]
+  );
+  return rows[0]?.locked ?? false;
+}
+
 // House-managed bonus/penalty to a manager's weekly CREDIT, on top of the
 // flat WEEKLY_ALLOWANCE base — this never touches the displayed Balance,
 // only what's available to bet with (see getManagerWeekMoney).
@@ -527,6 +544,9 @@ export async function placeFuturesBet(
   amount: number
 ): Promise<PlaceFuturesResult> {
   if (amount < MIN_BET) return { ok: false, error: `Minimum bet is $${MIN_BET}.` };
+  if (await isWeekLocked(season, week)) {
+    return { ok: false, error: "Betting is closed for this week — games have already started." };
+  }
 
   const { credit } = await getManagerWeekMoney(managerId, season, week);
   if (amount > credit + 1e-9) {
@@ -634,6 +654,9 @@ export async function placeBet(
   const line = lineRows[0] as LineRow | undefined;
   if (!line) return { ok: false, error: "Line not found." };
   if (line.status !== "open") return { ok: false, error: "This line is no longer open for betting." };
+  if (await isWeekLocked(line.season, line.week)) {
+    return { ok: false, error: "Betting is closed for this week — games have already started." };
+  }
   if (sideManagerId !== line.team_a_id && sideManagerId !== line.team_b_id) {
     return { ok: false, error: "Invalid side for this matchup." };
   }
@@ -694,6 +717,10 @@ export async function placeParlay(
   }
 
   const firstLine = linesById.get(legs[0].lineId)!;
+  if (await isWeekLocked(firstLine.season, firstLine.week)) {
+    return { ok: false, error: "Betting is closed for this week — games have already started." };
+  }
+
   const { credit } = await getManagerWeekMoney(managerId, firstLine.season, firstLine.week);
   if (amount > credit + 1e-9) {
     return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };

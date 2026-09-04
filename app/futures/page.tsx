@@ -1,4 +1,4 @@
-import { getChampionshipOdds, getCurrentWeek, getManagerWeekMoney } from "@/lib/queries";
+import { getChampionshipOdds, getCurrentWeek, getManagerWeekMoney, isWeekLocked } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import FuturesBetForm from "@/components/FuturesBetForm";
 
@@ -23,11 +23,13 @@ export default async function FuturesPage() {
     );
   }
 
-  const [odds, money] = await Promise.all([
+  const [odds, weekLocked, money] = await Promise.all([
     getChampionshipOdds(SEASON),
+    isWeekLocked(SEASON, week),
     currentManagerId ? getManagerWeekMoney(currentManagerId, SEASON, week) : Promise.resolve(null),
   ]);
   const credit = money?.credit ?? 0;
+  const bettingOpen = currentManagerId != null && !weekLocked && credit >= 3;
 
   const ranked = [...odds].sort((a, b) => b.impliedProbability - a.impliedProbability);
 
@@ -56,10 +58,15 @@ export default async function FuturesPage() {
           Pick your name in the top right to place bets.
         </p>
       )}
-      {currentManagerId != null && credit > 0 && credit < 3 && (
+      {currentManagerId != null && !weekLocked && credit > 0 && credit < 3 && (
         <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
           Only ${credit.toFixed(2)} of credit left — below the $3 minimum, so betting is closed until
           next week.
+        </p>
+      )}
+      {weekLocked && (
+        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          Futures betting is closed for Week {week} — games have already started. It reopens next week.
         </p>
       )}
 
@@ -84,7 +91,7 @@ export default async function FuturesPage() {
                   {formatOdds(o.americanOdds)}
                 </td>
                 <td className="px-4 py-3">
-                  {currentManagerId != null && credit >= 3 ? (
+                  {bettingOpen ? (
                     <div className="flex justify-end">
                       <FuturesBetForm
                         pickManagerId={o.managerId}

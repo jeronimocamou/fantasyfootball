@@ -1,4 +1,4 @@
-import { getWeekBoard, getCurrentWeek, getManagerWeekMoney, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
+import { getWeekBoard, getCurrentWeek, getManagerWeekMoney, isWeekLocked, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import BetForm from "@/components/BetForm";
 import ParlayToggle from "@/components/ParlayToggle";
@@ -35,10 +35,11 @@ export default async function BoardPage() {
     );
   }
 
-  const lines = await getWeekBoard(SEASON, week);
-  const money = currentManagerId
-    ? await getManagerWeekMoney(currentManagerId, SEASON, week)
-    : null;
+  const [lines, weekLocked, money] = await Promise.all([
+    getWeekBoard(SEASON, week),
+    isWeekLocked(SEASON, week),
+    currentManagerId ? getManagerWeekMoney(currentManagerId, SEASON, week) : Promise.resolve(null),
+  ]);
   const credit = money?.credit ?? 0;
   const balance = money?.balance ?? 0;
 
@@ -86,6 +87,11 @@ export default async function BoardPage() {
             Only ${credit.toFixed(2)} of credit left — below the ${MIN_BET} minimum, so betting is closed until next week.
           </p>
         )}
+        {weekLocked && (
+          <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+            Betting is closed for Week {week} — games have already started. New lines open next week.
+          </p>
+        )}
 
         <div className="flex flex-col gap-4">
           {lines.map((line) => {
@@ -93,7 +99,11 @@ export default async function BoardPage() {
             const isOwnMatchup =
               currentManagerId === line.team_a_id || currentManagerId === line.team_b_id;
             const canBet =
-              currentManagerId != null && !isOwnMatchup && line.status === "open" && credit >= MIN_BET;
+              currentManagerId != null &&
+              !isOwnMatchup &&
+              line.status === "open" &&
+              !weekLocked &&
+              credit >= MIN_BET;
             const spreadADisplay = formatSpread(Number(line.spread));
             const spreadBDisplay = formatSpread(-Number(line.spread));
 
