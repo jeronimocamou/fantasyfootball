@@ -363,10 +363,9 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
          -- Slot spins resolve instantly, so they only ever land in
          -- balance, never pending_at_risk — there's no in-between state.
          -- Always tagged 'spin' (not won/lost/push) so its balance
-         -- contribution is always payout - amount, which is correct for
-         -- every outcome including a partial return like two-of-a-kind's
-         -- half-back — unlike bets/parlays, a spin's payout isn't always
-         -- either 0 or the full stake.
+         -- contribution is always payout - amount, which is correct
+         -- however the game's payout rules change without this query
+         -- needing to know the specifics.
          SELECT s.amount, 'spin', s.payout
          FROM slot_spins s
          WHERE s.manager_id = $1 AND s.season = $2 AND s.week = $3

@@ -53,11 +53,6 @@ export function playReelStop() {
   tone(200, 0.09, { type: "square", gain: 0.16 });
 }
 
-export function playHalfBack() {
-  tone(660, 0.1, { type: "sine", gain: 0.14 });
-  tone(880, 0.14, { type: "sine", gain: 0.12, delay: 0.07 });
-}
-
 export function playLose() {
   tone(200, 0.22, { type: "sawtooth", gain: 0.1 });
   tone(130, 0.28, { type: "sawtooth", gain: 0.09, delay: 0.09 });

@@ -9,9 +9,8 @@ import {
   SLOT_BET_STEP,
   SLOT_SYMBOL_ORDER,
   THREE_OF_A_KIND_PAYOUT,
-  TWO_OF_A_KIND_PAYOUT_FRACTION,
 } from "@/lib/slots";
-import { primeAudio, playLever, playTick, playReelStop, playHalfBack, playLose, playWin } from "@/lib/sfx";
+import { primeAudio, playLever, playTick, playReelStop, playLose, playWin } from "@/lib/sfx";
 
 const SOUND_PREF_KEY = "slots-sound-muted";
 
@@ -33,7 +32,7 @@ function clampBet(amount: number): number {
   return Math.min(SLOT_MAX_BET, Math.max(SLOT_MIN_BET, Math.round(stepped * 100) / 100));
 }
 
-type Outcome = "won" | "half" | "lost";
+type Outcome = "won" | "lost";
 
 export default function SlotMachine({
   initialCredit,
@@ -147,11 +146,10 @@ export default function SlotMachine({
     setCredit(data.credit);
     setBalance(data.balance);
     const [a, b, c] = symbols;
-    const result: Outcome = a === b && b === c ? "won" : a === b || b === c || a === c ? "half" : "lost";
+    const result: Outcome = a === b && b === c ? "won" : "lost";
     setOutcome({ result, payout: data.payout });
     if (!mutedRef.current) {
       if (result === "won") playWin(a === "seven");
-      else if (result === "half") playHalfBack();
       else playLose();
     }
     router.refresh();
@@ -222,9 +220,6 @@ export default function SlotMachine({
         <div className="mt-3 flex h-6 items-center justify-center text-center text-sm">
           {outcome?.result === "won" && (
             <span className="font-semibold text-emerald-400">🎉 Won ${outcome.payout.toFixed(2)}!</span>
-          )}
-          {outcome?.result === "half" && (
-            <span className="text-amber-300">Two matching — ${outcome.payout.toFixed(2)} back.</span>
           )}
           {outcome?.result === "lost" && <span className="text-red-400">No match. House wins.</span>}
           {error && <span className="text-red-400">{error}</span>}
@@ -317,13 +312,7 @@ export default function SlotMachine({
               </div>
             ))}
             <div className="flex items-center justify-between py-2.5">
-              <span className="text-sm text-[#cfc2a8]">Any two matching</span>
-              <span className="font-display text-base font-semibold text-[#e0b84a]">
-                {TWO_OF_A_KIND_PAYOUT_FRACTION}× back
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-2.5">
-              <span className="text-sm text-[#cfc2a8]">No match</span>
+              <span className="text-sm text-[#cfc2a8]">Anything else</span>
               <span className="font-display text-base font-semibold text-red-400">Lose stake</span>
             </div>
           </div>
