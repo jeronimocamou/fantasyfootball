@@ -11,6 +11,9 @@ import {
   THREE_OF_A_KIND_PAYOUT,
   TWO_OF_A_KIND_PAYOUT_FRACTION,
 } from "@/lib/slots";
+import { primeAudio, playLever, playTick, playReelStop, playHalfBack, playLose, playWin } from "@/lib/sfx";
+
+const SOUND_PREF_KEY = "slots-sound-muted";
 
 const REEL_SYMBOLS = Object.values(SLOT_EMOJI);
 const SPIN_MS = 2200; // all three reels blur before any of them stop
@@ -49,8 +52,32 @@ export default function SlotMachine({
   const [showPaytable, setShowPaytable] = useState(false);
   const [outcome, setOutcome] = useState<{ result: Outcome; payout: number } | null>(null);
   const [error, setError] = useState("");
+  const [muted, setMuted] = useState(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lockedRef = useRef([false, false, false]);
+  const mutedRef = useRef(false);
+
+  useEffect(() => {
+    // Reading localStorage is a one-time sync from an external source that
+    // isn't available during SSR — deferred to a microtask so the setState
+    // isn't called synchronously within the effect body itself.
+    queueMicrotask(() => {
+      try {
+        setMuted(localStorage.getItem(SOUND_PREF_KEY) === "1");
+      } catch {
+        // ignore — default unmuted
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    mutedRef.current = muted;
+    try {
+      localStorage.setItem(SOUND_PREF_KEY, muted ? "1" : "0");
+    } catch {
+      // private-browsing or storage disabled — sound preference just won't persist
+    }
+  }, [muted]);
 
   useEffect(() => {
     return () => {
@@ -67,6 +94,9 @@ export default function SlotMachine({
       return;
     }
 
+    primeAudio();
+    if (!mutedRef.current) playLever();
+
     setError("");
     setOutcome(null);
     setSpinning(true);
@@ -76,6 +106,7 @@ export default function SlotMachine({
     lockedRef.current = [false, false, false];
     tickRef.current = setInterval(() => {
       setReels((prev) => prev.map((sym, i) => (lockedRef.current[i] ? sym : randomSymbol())));
+      if (!mutedRef.current) playTick();
     }, TICK_MS);
 
     const [res] = await Promise.all([
@@ -108,6 +139,7 @@ export default function SlotMachine({
         next[i] = emojiReels[i];
         return next;
       });
+      if (!mutedRef.current) playReelStop();
     }
 
     if (tickRef.current) clearInterval(tickRef.current);
@@ -117,6 +149,11 @@ export default function SlotMachine({
     const [a, b, c] = symbols;
     const result: Outcome = a === b && b === c ? "won" : a === b || b === c || a === c ? "half" : "lost";
     setOutcome({ result, payout: data.payout });
+    if (!mutedRef.current) {
+      if (result === "won") playWin(a === "seven");
+      else if (result === "half") playHalfBack();
+      else playLose();
+    }
     router.refresh();
   }
 
@@ -229,6 +266,14 @@ export default function SlotMachine({
             className="rounded-full border border-[#e0b84a]/60 px-4 py-2.5 text-xs font-semibold text-[#e0b84a] transition-colors hover:bg-[#e0b84a]/10"
           >
             Payouts
+          </button>
+          <button
+            onClick={() => setMuted((m) => !m)}
+            aria-label={muted ? "Unmute sound" : "Mute sound"}
+            title={muted ? "Unmute sound" : "Mute sound"}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e0b84a]/60 text-sm text-[#e0b84a] transition-colors hover:bg-[#e0b84a]/10"
+          >
+            {muted ? "🔇" : "🔊"}
           </button>
         </div>
       </div>
