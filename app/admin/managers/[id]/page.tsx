@@ -139,6 +139,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
+                  <th className="px-4 py-3">When</th>
                   <th className="px-4 py-3">Week</th>
                   <th className="px-4 py-3">Bet</th>
                   <th className="px-4 py-3">Vs</th>
@@ -150,6 +151,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
               <tbody>
                 {bets.map((b) => (
                   <tr key={b.id} className="border-t border-border-color/60">
+                    <td className="px-4 py-3 text-muted">{formatDate(b.placed_at)}</td>
                     <td className="px-4 py-3 text-muted">Wk {b.week}</td>
                     <td className="px-4 py-3 font-medium">{b.side_name}</td>
                     <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
@@ -178,7 +180,8 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
               <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">
-                    {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
+                    {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}{" "}
+                    <span className="font-normal text-muted">— {formatDate(p.placed_at)}</span>
                   </span>
                   <div className="flex items-center gap-3">
                     {p.payout != null && <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>}
