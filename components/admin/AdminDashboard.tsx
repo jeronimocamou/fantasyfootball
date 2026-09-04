@@ -268,6 +268,10 @@ function ManagerRow({
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetPinInput, setResetPinInput] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   async function submit() {
     const value = Number(amount);
@@ -281,6 +285,31 @@ function ManagerRow({
     setAmount("");
     setNote("");
     setLoading(false);
+    onDone();
+  }
+
+  function cancelReset() {
+    setConfirmingReset(false);
+    setResetPinInput("");
+    setResetError("");
+  }
+
+  async function submitReset() {
+    if (!resetPinInput) return;
+    setResetLoading(true);
+    setResetError("");
+    const res = await fetch("/api/admin/reset-balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ managerId: manager.manager_id, season, week, pin: resetPinInput }),
+    });
+    const data = await res.json();
+    setResetLoading(false);
+    if (!res.ok || !data.ok) {
+      setResetError(data.error ?? "Something went wrong.");
+      return;
+    }
+    cancelReset();
     onDone();
   }
 
@@ -327,9 +356,45 @@ function ManagerRow({
         </div>
       </td>
       <td className="px-4 py-3">
-        <button onClick={onResetPin} className="text-xs text-muted hover:text-red-600 dark:hover:text-red-400">
-          Reset PIN
-        </button>
+        <div className="flex flex-col items-start gap-1">
+          {confirmingReset ? (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="Admin PIN"
+                  value={resetPinInput}
+                  onChange={(e) => setResetPinInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitReset()}
+                  autoFocus
+                  className="w-20 rounded-md border border-border-color bg-background px-1.5 py-1 text-xs"
+                />
+                <button
+                  onClick={submitReset}
+                  disabled={!resetPinInput || resetLoading}
+                  className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+                >
+                  Confirm
+                </button>
+                <button onClick={cancelReset} className="text-xs text-muted hover:text-foreground">
+                  Cancel
+                </button>
+              </div>
+              {resetError && <span className="text-xs text-red-600 dark:text-red-400">{resetError}</span>}
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingReset(true)}
+              className="text-xs text-muted hover:text-red-600 dark:hover:text-red-400"
+            >
+              Reset Balance
+            </button>
+          )}
+          <button onClick={onResetPin} className="text-xs text-muted hover:text-red-600 dark:hover:text-red-400">
+            Reset PIN
+          </button>
+        </div>
       </td>
     </tr>
   );

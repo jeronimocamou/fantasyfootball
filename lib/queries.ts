@@ -300,21 +300,19 @@ export async function getManagerWeekAdjustment(managerId: number, season: number
   return Number(rows[0].total);
 }
 
-export async function getManagerWeekAllowance(managerId: number, season: number, week: number): Promise<number> {
-  const adjustment = await getManagerWeekAdjustment(managerId, season, week);
-  return WEEKLY_ALLOWANCE + adjustment;
-}
-
 export type ManagerWeekMoney = {
-  allowance: number;
   balance: number;
   pendingAtRisk: number;
   credit: number;
 };
 
 // Splits a manager's week into two numbers instead of one flat allowance:
-//   - balance: net profit/loss from bets that have already settled this
-//     week (won/lost/push). Starts at 0 each week; can go negative.
+//   - balance: what you've actually won or lost this week — net
+//     profit/loss from settled bets (won/lost/push) plus any house
+//     adjustment. Starts at 0 each week; can go negative. Folding the
+//     adjustment in here (rather than into the allowance) is what makes
+//     resetManagerWeekBalance's "reset to $0" trivial: it's just an
+//     adjustment of -balance.
 //   - credit: what's actually available to place new bets with right
 //     now — the base allowance plus balance, minus whatever's currently
 //     tied up in pending bets. Floored at 0, but goes back up above the
@@ -326,8 +324,8 @@ export type ManagerWeekMoney = {
 // count toward neither figure — the house voiding one means that money
 // was never really at risk and never really won or lost.
 export async function getManagerWeekMoney(managerId: number, season: number, week: number): Promise<ManagerWeekMoney> {
-  const [allowance, { rows }] = await Promise.all([
-    getManagerWeekAllowance(managerId, season, week),
+  const [adjustment, { rows }] = await Promise.all([
+    getManagerWeekAdjustment(managerId, season, week),
     getPool().query(
       `SELECT
          COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_at_risk,
@@ -336,7 +334,7 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
            WHEN status = 'lost' THEN -amount
            WHEN status = 'spin' THEN payout - amount
            ELSE 0
-         END), 0) AS balance
+         END), 0) AS settled_net
        FROM (
          SELECT b.amount, b.status, b.payout FROM bets b JOIN weekly_lines wl ON wl.id = b.line_id
          WHERE b.manager_id = $1 AND wl.season = $2 AND wl.week = $3 AND b.status != 'cancelled'
@@ -362,9 +360,23 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
     ),
   ]);
   const pendingAtRisk = Number(rows[0].pending_at_risk);
-  const balance = Number(rows[0].balance);
-  const credit = Math.max(0, allowance + balance - pendingAtRisk);
-  return { allowance, balance, pendingAtRisk, credit };
+  const balance = Number(rows[0].settled_net) + adjustment;
+  const credit = Math.max(0, WEEKLY_ALLOWANCE + balance - pendingAtRisk);
+  return { balance, pendingAtRisk, credit };
+}
+
+// Zeroes out a manager's balance for the week by inserting a
+// balance_adjustments row for exactly -balance — the existing ledger
+// mechanism, not a new one, so this stays a fully auditable entry rather
+// than mutating or deleting real settled bet/parlay/spin history.
+export async function resetManagerWeekBalance(managerId: number, season: number, week: number): Promise<AdminResult> {
+  const { balance } = await getManagerWeekMoney(managerId, season, week);
+  if (Math.abs(balance) < 0.005) return { ok: true };
+  await getPool().query(
+    `INSERT INTO balance_adjustments (manager_id, season, week, amount, note) VALUES ($1, $2, $3, $4, $5)`,
+    [managerId, season, week, -balance, "Balance reset by house"]
+  );
+  return { ok: true };
 }
 
 export type SlotSpinResult =
@@ -656,7 +668,6 @@ export type ManagerWeekSummary = {
   manager_id: number;
   display_name: string;
   adjustment: number;
-  allowance: number;
   balance: number;
   credit: number;
 };
@@ -665,12 +676,14 @@ export async function getAllManagerWeekSummaries(season: number, week: number): 
   const managers = await getManagers();
   return Promise.all(
     managers.map(async (m) => {
-      const money = await getManagerWeekMoney(m.id, season, week);
+      const [money, adjustment] = await Promise.all([
+        getManagerWeekMoney(m.id, season, week),
+        getManagerWeekAdjustment(m.id, season, week),
+      ]);
       return {
         manager_id: m.id,
         display_name: m.display_name,
-        adjustment: money.allowance - WEEKLY_ALLOWANCE,
-        allowance: money.allowance,
+        adjustment,
         balance: money.balance,
         credit: money.credit,
       };
