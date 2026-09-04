@@ -34,16 +34,15 @@ const SLOT_WEIGHTS: { symbol: SlotSymbol; weight: number }[] = [
 
 // Payout multiplier for three of a kind. Two matching (any pair among the
 // three reels) pays half the stake back; anything else loses it all.
-// Landing on these weights, that works out to roughly a 57%
-// return-to-player rate — three of a kind alone is generous, but two of a
-// kind no longer breaking even pulls the overall average payout well
-// below the stake, so it can't be farmed as free credit for the real
-// board. Jackpot (seven/seven/seven) odds: (10/100)^3 = 1 in 1,000 spins.
+// Landing on these weights, that works out to exactly an 85%
+// return-to-player rate:
+//   0.4^3*4 + 0.3^3*6 + 0.2^3*12 + 0.1^3*36 + 0.6*0.5 = 0.85
+// Jackpot (seven/seven/seven) odds: (10/100)^3 = 1 in 1,000 spins.
 export const THREE_OF_A_KIND_PAYOUT: Record<SlotSymbol, number> = {
-  cherry: 2,
-  lemon: 3,
-  bell: 6,
-  seven: 15,
+  cherry: 4,
+  lemon: 6,
+  bell: 12,
+  seven: 36,
 };
 
 export const TWO_OF_A_KIND_PAYOUT_FRACTION = 0.5;
