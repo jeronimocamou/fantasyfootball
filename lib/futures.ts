@@ -21,10 +21,20 @@ export type ChampionshipOdds = {
 const CURRENT_SEASON_WEIGHT = 0.65;
 const LAST_SEASON_WEIGHT = 0.35;
 
-// Futures carry a heavier overround than a single game line — a 20-30%
-// total vig on a 10-way market is standard for a long-shot futures book,
-// versus ~5% on a two-way spread.
-const FUTURES_VIG = 1.25;
+// No manager's longshot price should exceed this — capped for real,
+// dynamically, not by clamping outliers down to a flat number (see
+// below). A 10-team field where every price stays this tight needs a
+// heavy overround, which is what SHRINK_TOWARD_UNIFORM and the solved
+// vig below are for.
+const MAX_UNDERDOG_ODDS = 550;
+
+// Blends each team's rank-based probability toward a flat 1/N before
+// pricing — 1.0 keeps the full spread from the ranks, 0.0 would make
+// every team dead even. 0.7 keeps real separation (the leader still
+// prices as a real favorite, negative money) while pulling in just
+// enough to make MAX_UNDERDOG_ODDS reachable without flattening anyone
+// to a single number.
+const SHRINK_TOWARD_UNIFORM = 0.7;
 
 // Inverse rank, normalized across the field so it sums to 1 — a team
 // ranked 1st contributes far more than one ranked 10th, but every team
@@ -40,6 +50,21 @@ export function americanOddsFromProbability(p: number): number {
   if (p >= 0.5) return Math.round((-100 * p) / (1 - p));
   return Math.round((100 * (1 - p)) / p);
 }
+
+function probabilityFromAmericanOdds(odds: number): number {
+  return odds > 0 ? 100 / (odds + 100) : -odds / (-odds + 100);
+}
+
+// House-set price overrides, applied after the model runs. The computed
+// line for these two priced as heavy favorites (-124 / -116) once the
+// +550 field-wide cap forced a heavier vig onto everyone else — the house
+// decided that was too short a price to offer on the top two regardless
+// of what the model says, and pinned them here instead. Order between the
+// two (Michael still shorter than Logan) still matches their model rank.
+const MANUAL_ODDS_OVERRIDES: Record<number, number> = {
+  1: 195, // Michael Grabel
+  4: 200, // logan guerrieri
+};
 
 export function computeChampionshipOdds(teams: TeamPower[]): ChampionshipOdds[] {
   if (teams.length === 0) return [];
@@ -59,14 +84,33 @@ export function computeChampionshipOdds(teams: TeamPower[]): ChampionshipOdds[] 
   const compositeSum = composite.reduce((a, b) => a + b, 0);
   const trueProbabilities = composite.map((c) => c / compositeSum);
 
+  // Pull every probability toward 1/N so the field is less extreme, then
+  // renormalize back to summing to 1 — order is preserved (whoever ranked
+  // ahead still prices shorter), just compressed.
+  const n = teams.length;
+  const shrunk = trueProbabilities.map((p) => SHRINK_TOWARD_UNIFORM * p + (1 - SHRINK_TOWARD_UNIFORM) * (1 / n));
+  const shrunkSum = shrunk.reduce((a, b) => a + b, 0);
+  const shrunkProbabilities = shrunk.map((p) => p / shrunkSum);
+
+  // Solve for exactly the vig that puts the field's biggest underdog
+  // right at MAX_UNDERDOG_ODDS, rather than hardcoding a vig and hoping
+  // it lands under the cap — this way the cap holds every week even as
+  // real results reshuffle how spread out the rankings are.
+  const minProbabilityNeeded = 100 / (100 + MAX_UNDERDOG_ODDS);
+  const minShrunkProbability = Math.min(...shrunkProbabilities);
+  const vig = minProbabilityNeeded / minShrunkProbability;
+
   return teams.map((t, i) => {
+    const override = MANUAL_ODDS_OVERRIDES[t.managerId];
+    if (override !== undefined) {
+      return { managerId: t.managerId, impliedProbability: probabilityFromAmericanOdds(override), americanOdds: override };
+    }
     const impliedProbability = trueProbabilities[i];
-    const vigProbability = Math.min(0.99, impliedProbability * FUTURES_VIG);
-    return {
-      managerId: t.managerId,
-      impliedProbability,
-      americanOdds: americanOddsFromProbability(vigProbability),
-    };
+    const vigProbability = Math.min(0.99, shrunkProbabilities[i] * vig);
+    // Rounding to a whole number of American odds can occasionally push a
+    // hair past the cap — clamp as a backstop, not the primary mechanism.
+    const americanOdds = Math.min(MAX_UNDERDOG_ODDS, americanOddsFromProbability(vigProbability));
+    return { managerId: t.managerId, impliedProbability, americanOdds };
   });
 }
 
