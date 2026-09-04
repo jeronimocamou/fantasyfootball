@@ -158,8 +158,8 @@ export default async function MyBetsPage() {
         <div className="text-right text-sm">
           <div className="text-xs uppercase tracking-wide text-muted">Net (settled)</div>
           <div className={`text-lg font-bold ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-            {net >= 0 ? "+" : ""}
-            {net.toFixed(2)}
+            {net >= 0 ? "+$" : "-$"}
+            {Math.abs(net).toFixed(2)}
           </div>
         </div>
       </div>

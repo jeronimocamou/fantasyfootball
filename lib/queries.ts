@@ -368,7 +368,7 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
 }
 
 export type SlotSpinResult =
-  | { ok: true; reels: SlotSymbol[]; amount: number; payout: number; credit: number }
+  | { ok: true; reels: SlotSymbol[]; amount: number; payout: number; credit: number; balance: number }
   | { ok: false; error: string };
 
 // Every pull costs a fixed SLOT_BET_AMOUNT — an old-school machine takes
@@ -396,7 +396,7 @@ export async function playSlotSpin(
   );
 
   const after = await getManagerWeekMoney(managerId, season, week);
-  return { ok: true, reels, amount, payout, credit: after.credit };
+  return { ok: true, reels, amount, payout, credit: after.credit, balance: after.balance };
 }
 
 export type PlaceBetResult =

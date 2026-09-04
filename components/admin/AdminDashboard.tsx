@@ -293,8 +293,8 @@ function ManagerRow({
           manager.balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
         }`}
       >
-        {manager.balance >= 0 ? "+" : ""}
-        {manager.balance.toFixed(2)}
+        {manager.balance >= 0 ? "+$" : "-$"}
+        {Math.abs(manager.balance).toFixed(2)}
       </td>
       <td className="px-4 py-3 text-right tabular-nums">
         {manager.adjustment >= 0 ? "+" : ""}

@@ -25,9 +25,16 @@ function wait(ms: number) {
 
 type Outcome = "won" | "half" | "lost";
 
-export default function SlotMachine({ initialCredit }: { initialCredit: number }) {
+export default function SlotMachine({
+  initialCredit,
+  initialBalance,
+}: {
+  initialCredit: number;
+  initialBalance: number;
+}) {
   const router = useRouter();
   const [credit, setCredit] = useState(initialCredit);
+  const [balance, setBalance] = useState(initialBalance);
   const [reels, setReels] = useState<string[]>(["🍒", "🍋", "🔔"]);
   const [spinning, setSpinning] = useState(false);
   const [leverPulled, setLeverPulled] = useState(false);
@@ -92,6 +99,7 @@ export default function SlotMachine({ initialCredit }: { initialCredit: number }
     if (tickRef.current) clearInterval(tickRef.current);
     setSpinning(false);
     setCredit(data.credit);
+    setBalance(data.balance);
     const [a, b, c] = symbols;
     const result: Outcome = a === b && b === c ? "won" : a === b || b === c || a === c ? "half" : "lost";
     setOutcome({ result, payout: data.payout });
@@ -131,9 +139,22 @@ export default function SlotMachine({ initialCredit }: { initialCredit: number }
           CRACKYARD
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-[#1a1208] px-3 py-2 text-xs">
-          <span className="uppercase tracking-wide text-[#a89b85]">Credit</span>
-          <span className="font-display text-base font-semibold text-[#e0b84a]">${credit.toFixed(2)}</span>
+        <div className="flex gap-2">
+          <div className="flex flex-1 flex-col items-center rounded-lg bg-[#1a1208] px-3 py-2 text-xs">
+            <span className="uppercase tracking-wide text-[#a89b85]">Credit</span>
+            <span className="font-display text-base font-semibold text-[#e0b84a]">${credit.toFixed(2)}</span>
+          </div>
+          <div className="flex flex-1 flex-col items-center rounded-lg bg-[#1a1208] px-3 py-2 text-xs">
+            <span className="uppercase tracking-wide text-[#a89b85]">Balance</span>
+            <span
+              className={`font-display text-base font-semibold ${
+                balance >= 0 ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {balance >= 0 ? "+$" : "-$"}
+              {Math.abs(balance).toFixed(2)}
+            </span>
+          </div>
         </div>
 
         <div className="mt-3 flex justify-center gap-2 rounded-xl border-4 border-[#5c4620] bg-[#0f0a05] p-4">

@@ -68,8 +68,8 @@ export default async function BoardPage() {
                     balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {balance >= 0 ? "+" : ""}
-                  {balance.toFixed(2)}
+                  {balance >= 0 ? "+$" : "-$"}
+                  {Math.abs(balance).toFixed(2)}
                 </div>
               </div>
             </div>

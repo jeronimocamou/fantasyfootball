@@ -38,8 +38,8 @@ export default async function LeaderboardPage() {
                     Number(r.net) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                   }`}
                 >
-                  {Number(r.net) >= 0 ? "+" : ""}
-                  {Number(r.net).toFixed(2)}
+                  {Number(r.net) >= 0 ? "+$" : "-$"}
+                  {Math.abs(Number(r.net)).toFixed(2)}
                 </td>
               </tr>
             ))}

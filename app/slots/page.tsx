@@ -46,7 +46,7 @@ export default async function SlotsPage() {
       <h1 className="font-display text-2xl font-semibold tracking-tight text-[#f0ebdd]">
         🎰 Crackyard Slots
       </h1>
-      <SlotMachine initialCredit={money.credit} />
+      <SlotMachine initialCredit={money.credit} initialBalance={money.balance} />
     </FeltTable>
   );
 }
