@@ -85,6 +85,20 @@ CREATE TABLE IF NOT EXISTS balance_adjustments (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- The slot machine easter egg. Each spin resolves instantly (no pending
+-- state, unlike bets) — amount and payout are both final the moment the
+-- row is written. reels is the 3 symbols shown, purely for display/history.
+CREATE TABLE IF NOT EXISTS slot_spins (
+    id          SERIAL PRIMARY KEY,
+    manager_id  INTEGER NOT NULL REFERENCES managers(id),
+    season      INTEGER NOT NULL,
+    week        INTEGER NOT NULL,
+    amount      NUMERIC(6,2) NOT NULL CHECK (amount > 0),
+    payout      NUMERIC(8,2) NOT NULL,
+    reels       TEXT NOT NULL,
+    spun_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_season_week ON weekly_lines(season, week);
 CREATE INDEX IF NOT EXISTS idx_bets_manager ON bets(manager_id);
 CREATE INDEX IF NOT EXISTS idx_bets_line ON bets(line_id);
@@ -92,3 +106,4 @@ CREATE INDEX IF NOT EXISTS idx_parlays_manager ON parlays(manager_id);
 CREATE INDEX IF NOT EXISTS idx_parlay_legs_parlay ON parlay_legs(parlay_id);
 CREATE INDEX IF NOT EXISTS idx_parlay_legs_line ON parlay_legs(line_id);
 CREATE INDEX IF NOT EXISTS idx_balance_adj_manager_week ON balance_adjustments(manager_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_slot_spins_manager_week ON slot_spins(manager_id, season, week);

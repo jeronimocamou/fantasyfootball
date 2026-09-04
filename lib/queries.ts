@@ -2,6 +2,7 @@ import { getPool } from "./pg";
 import { computeLine, gradeSide, profitForOdds, parlayPayout, DEFAULT_ODDS } from "./betting";
 import { fetchLeagueLive, type EspnTeam } from "./espn";
 import { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS } from "./bettingConstants";
+import { spinReels, gradeSpin, SLOT_EMOJI, type SlotSymbol } from "./slots";
 
 export { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS };
 
@@ -344,6 +345,14 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
            SELECT 1 FROM parlay_legs pl JOIN weekly_lines wl ON wl.id = pl.line_id
            WHERE pl.parlay_id = p.id AND wl.season = $2 AND wl.week = $3
          )
+         UNION ALL
+         -- Slot spins resolve instantly, so they only ever land in
+         -- balance, never pending_at_risk — there's no in-between state.
+         SELECT s.amount,
+                CASE WHEN s.payout > s.amount THEN 'won' WHEN s.payout < s.amount THEN 'lost' ELSE 'push' END,
+                s.payout
+         FROM slot_spins s
+         WHERE s.manager_id = $1 AND s.season = $2 AND s.week = $3
        ) combined`,
       [managerId, season, week]
     ),
@@ -352,6 +361,40 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
   const balance = Number(rows[0].balance);
   const credit = Math.max(0, allowance + balance - pendingAtRisk);
   return { allowance, balance, pendingAtRisk, credit };
+}
+
+export type SlotSpinResult =
+  | { ok: true; reels: SlotSymbol[]; amount: number; payout: number; credit: number }
+  | { ok: false; error: string };
+
+// A spin settles in the same call that places it — no pending state, so
+// the credit check here is the only gate (same amount-vs-credit rule as
+// placeBet/placeParlay below).
+export async function playSlotSpin(
+  managerId: number,
+  season: number,
+  week: number,
+  amount: number
+): Promise<SlotSpinResult> {
+  if (!Number.isFinite(amount) || amount < MIN_BET) {
+    return { ok: false, error: `Minimum spin is $${MIN_BET}.` };
+  }
+  const { credit } = await getManagerWeekMoney(managerId, season, week);
+  if (amount > credit + 1e-9) {
+    return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };
+  }
+
+  const reels = spinReels();
+  const payout = gradeSpin(reels, amount);
+
+  await getPool().query(
+    `INSERT INTO slot_spins (manager_id, season, week, amount, payout, reels)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [managerId, season, week, amount, payout, reels.map((r) => SLOT_EMOJI[r]).join(",")]
+  );
+
+  const after = await getManagerWeekMoney(managerId, season, week);
+  return { ok: true, reels, amount, payout, credit: after.credit };
 }
 
 export type PlaceBetResult =

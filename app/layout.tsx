@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Fraunces, Work_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
 import Decor from "@/components/Decor";
@@ -61,8 +62,17 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             children
           )}
         </main>
-        <footer className="border-t border-border-color px-6 py-6 text-center text-xs text-muted">
-          Crackyard Sportsbook · Jerome Corp<sup className="text-[0.55em]">©</sup>
+        <footer className="flex items-center justify-center gap-2 border-t border-border-color px-6 py-6 text-center text-xs text-muted">
+          <span>
+            Crackyard Sportsbook · Jerome Corp<sup className="text-[0.55em]">©</sup>
+          </span>
+          <Link
+            href="/slots"
+            title="???"
+            className="text-sm opacity-30 grayscale transition-all hover:scale-125 hover:opacity-100 hover:grayscale-0"
+          >
+            🎰
+          </Link>
         </footer>
       </body>
     </html>
