@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           )}
         </main>
         <footer className="border-t border-border-color px-6 py-6 text-center text-xs text-muted">
-          Crackyard Sportsbook · Jerome Corp©
+          Crackyard Sportsbook · Jerome Corp<sup className="text-[0.55em]">©</sup>
         </footer>
       </body>
     </html>

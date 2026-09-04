@@ -66,7 +66,9 @@ export default function Nav({
               <path d="M9 13.5h6" />
             </svg>
           </Link>
-          <span className="text-xs text-muted">Jerome Corp©</span>
+          <span className="text-xs text-muted">
+            Jerome Corp<sup className="text-[0.55em]">©</sup>
+          </span>
         </div>
       </div>
     </header>
