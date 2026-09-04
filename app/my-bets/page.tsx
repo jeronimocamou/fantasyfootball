@@ -1,4 +1,12 @@
-import { getManagerBets, getManagerParlays, getManagers, type BetHistoryRow, type ParlayHistoryRow } from "@/lib/queries";
+import {
+  getManagerBets,
+  getManagerParlays,
+  getManagerFuturesBets,
+  getManagers,
+  type BetHistoryRow,
+  type ParlayHistoryRow,
+  type FuturesHistoryRow,
+} from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import { profitForOdds, parlayPayout } from "@/lib/betting";
 import StatusPill from "@/components/StatusPill";
@@ -8,6 +16,10 @@ import RiskSummary from "@/components/RiskSummary";
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
   return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+}
+
+function formatOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : String(odds);
 }
 
 function BetsTable({ bets }: { bets: BetHistoryRow[] }) {
@@ -96,6 +108,48 @@ function ParlaysList({ parlays }: { parlays: ParlayHistoryRow[] }) {
   );
 }
 
+function FuturesTable({ futures }: { futures: FuturesHistoryRow[] }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <table className="w-full min-w-[560px] text-sm">
+        <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
+          <tr>
+            <th className="px-4 py-3">Pick to win it all</th>
+            <th className="px-4 py-3 text-right">Odds</th>
+            <th className="px-4 py-3 text-right">Amount</th>
+            <th className="px-4 py-3 text-right">Status</th>
+            <th className="px-4 py-3 text-right">Payout</th>
+          </tr>
+        </thead>
+        <tbody>
+          {futures.map((f) => {
+            const potentialPayout = Number(f.amount) + profitForOdds(Number(f.amount), f.odds);
+            return (
+              <tr key={f.id} className="border-t border-border-color/60">
+                <td className="px-4 py-3 font-medium">{f.pick_display_name}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{formatOdds(f.odds)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">${Number(f.amount).toFixed(2)}</td>
+                <td className="px-4 py-3 text-right">
+                  <StatusPill status={f.status} />
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {f.status === "pending" ? (
+                    <span className="italic text-muted">${potentialPayout.toFixed(2)} if won</span>
+                  ) : f.payout != null ? (
+                    `$${Number(f.payout).toFixed(2)}`
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default async function MyBetsPage() {
   const managerId = await getCurrentManagerId();
 
@@ -108,9 +162,10 @@ export default async function MyBetsPage() {
     );
   }
 
-  const [bets, parlays, managers] = await Promise.all([
+  const [bets, parlays, futures, managers] = await Promise.all([
     getManagerBets(managerId),
     getManagerParlays(managerId),
+    getManagerFuturesBets(managerId),
     getManagers(),
   ]);
   const me = managers.find((m) => m.id === managerId);
@@ -119,6 +174,8 @@ export default async function MyBetsPage() {
   const cancelledBets = bets.filter((b) => b.status === "cancelled");
   const activeParlays = parlays.filter((p) => p.status !== "cancelled");
   const cancelledParlays = parlays.filter((p) => p.status === "cancelled");
+  const activeFutures = futures.filter((f) => f.status !== "cancelled");
+  const cancelledFutures = futures.filter((f) => f.status === "cancelled");
 
   const betsNet = bets
     .filter((b) => b.status !== "pending" && b.status !== "cancelled")
@@ -134,15 +191,25 @@ export default async function MyBetsPage() {
       if (p.status === "lost") return sum - Number(p.amount);
       return sum;
     }, 0);
-  const net = betsNet + parlaysNet;
+  const futuresNet = futures
+    .filter((f) => f.status !== "pending" && f.status !== "cancelled")
+    .reduce((sum, f) => {
+      if (f.status === "won") return sum + (Number(f.payout) - Number(f.amount));
+      if (f.status === "lost") return sum - Number(f.amount);
+      return sum;
+    }, 0);
+  const net = betsNet + parlaysNet + futuresNet;
 
   const pendingBets = bets.filter((b) => b.status === "pending");
   const pendingParlays = parlays.filter((p) => p.status === "pending");
+  const pendingFutures = futures.filter((f) => f.status === "pending");
   const atRisk =
     pendingBets.reduce((sum, b) => sum + Number(b.amount), 0) +
-    pendingParlays.reduce((sum, p) => sum + Number(p.amount), 0);
+    pendingParlays.reduce((sum, p) => sum + Number(p.amount), 0) +
+    pendingFutures.reduce((sum, f) => sum + Number(f.amount), 0);
   const toWin =
     pendingBets.reduce((sum, b) => sum + profitForOdds(Number(b.amount), b.odds), 0) +
+    pendingFutures.reduce((sum, f) => sum + profitForOdds(Number(f.amount), f.odds), 0) +
     pendingParlays.reduce((sum, p) => {
       const payout = parlayPayout(
         Number(p.amount),
@@ -195,6 +262,24 @@ export default async function MyBetsPage() {
             )}
             <CancelledDisclosure count={cancelledParlays.length}>
               <ParlaysList parlays={cancelledParlays} />
+            </CancelledDisclosure>
+          </>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">Futures</h2>
+        {activeFutures.length === 0 && cancelledFutures.length === 0 ? (
+          <p className="text-sm text-muted">No futures bets placed yet.</p>
+        ) : (
+          <>
+            {activeFutures.length === 0 ? (
+              <p className="text-sm text-muted">No active futures bets.</p>
+            ) : (
+              <FuturesTable futures={activeFutures} />
+            )}
+            <CancelledDisclosure count={cancelledFutures.length}>
+              <FuturesTable futures={cancelledFutures} />
             </CancelledDisclosure>
           </>
         )}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ManagerWeekSummary, AdminBetRow, AdminParlayRow } from "@/lib/queries";
+import type { ManagerWeekSummary, AdminBetRow, AdminParlayRow, AdminFuturesRow } from "@/lib/queries";
 import { profitForOdds, parlayPayout } from "@/lib/betting";
 import StatusPill from "@/components/StatusPill";
 import CancelledDisclosure from "@/components/CancelledDisclosure";
@@ -12,6 +12,10 @@ import RiskSummary from "@/components/RiskSummary";
 function formatSpread(spread: number): string {
   if (spread === 0) return "PK";
   return spread > 0 ? `+${spread.toFixed(1)}` : spread.toFixed(1);
+}
+
+function formatOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : String(odds);
 }
 
 function BetsTable({ bets, onCancel }: { bets: AdminBetRow[]; onCancel: (betId: number) => void }) {
@@ -120,18 +124,68 @@ function ParlaysList({ parlays, onCancel }: { parlays: AdminParlayRow[]; onCance
   );
 }
 
+function FuturesTable({
+  futures,
+  onCancel,
+}: {
+  futures: AdminFuturesRow[];
+  onCancel: (futuresBetId: number) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
+          <tr>
+            <th className="px-4 py-3">Bettor</th>
+            <th className="px-4 py-3">Pick to win it all</th>
+            <th className="px-4 py-3 text-right">Odds</th>
+            <th className="px-4 py-3 text-right">Amount</th>
+            <th className="px-4 py-3 text-right">Status</th>
+            <th className="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {futures.map((f) => (
+            <tr key={f.id} className="border-t border-border-color/60">
+              <td className="px-4 py-3">{f.manager_name}</td>
+              <td className="px-4 py-3 font-medium">{f.pick_display_name}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{formatOdds(f.odds)}</td>
+              <td className="px-4 py-3 text-right tabular-nums">${Number(f.amount).toFixed(2)}</td>
+              <td className="px-4 py-3 text-right">
+                <StatusPill status={f.status} />
+              </td>
+              <td className="px-4 py-3 text-right">
+                {f.status === "pending" && (
+                  <button
+                    onClick={() => onCancel(f.id)}
+                    className="text-xs text-red-600 hover:underline dark:text-red-400"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function AdminDashboard({
   season,
   week,
   managers,
   bets,
   parlays,
+  futures,
 }: {
   season: number;
   week: number;
   managers: ManagerWeekSummary[];
   bets: AdminBetRow[];
   parlays: AdminParlayRow[];
+  futures: AdminFuturesRow[];
 }) {
   const router = useRouter();
 
@@ -139,16 +193,21 @@ export default function AdminDashboard({
   const cancelledBets = bets.filter((b) => b.status === "cancelled");
   const activeParlays = parlays.filter((p) => p.status !== "cancelled");
   const cancelledParlays = parlays.filter((p) => p.status === "cancelled");
+  const activeFutures = futures.filter((f) => f.status !== "cancelled");
+  const cancelledFutures = futures.filter((f) => f.status === "cancelled");
 
   const totalBalance = managers.reduce((sum, m) => sum + m.balance, 0);
 
   const pendingBets = bets.filter((b) => b.status === "pending");
   const pendingParlays = parlays.filter((p) => p.status === "pending");
+  const pendingFutures = futures.filter((f) => f.status === "pending");
   const atRisk =
     pendingBets.reduce((sum, b) => sum + Number(b.amount), 0) +
-    pendingParlays.reduce((sum, p) => sum + Number(p.amount), 0);
+    pendingParlays.reduce((sum, p) => sum + Number(p.amount), 0) +
+    pendingFutures.reduce((sum, f) => sum + Number(f.amount), 0);
   const toWin =
     pendingBets.reduce((sum, b) => sum + profitForOdds(Number(b.amount), b.odds), 0) +
+    pendingFutures.reduce((sum, f) => sum + profitForOdds(Number(f.amount), f.odds), 0) +
     pendingParlays.reduce((sum, p) => {
       const payout = parlayPayout(
         Number(p.amount),
@@ -179,6 +238,16 @@ export default function AdminDashboard({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parlayId }),
+    });
+    router.refresh();
+  }
+
+  async function cancelFutures(futuresBetId: number) {
+    if (!confirm("Cancel this futures bet? This can't be undone.")) return;
+    await fetch("/api/admin/cancel-futures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ futuresBetId }),
     });
     router.refresh();
   }
@@ -288,7 +357,133 @@ export default function AdminDashboard({
         )}
       </section>
 
+      <section>
+        <h2 className="mb-3 text-lg font-semibold">Futures</h2>
+        {activeFutures.length === 0 && cancelledFutures.length === 0 ? (
+          <p className="text-sm text-muted">No futures bets yet.</p>
+        ) : (
+          <>
+            {activeFutures.length === 0 ? (
+              <p className="text-sm text-muted">No active futures bets.</p>
+            ) : (
+              <FuturesTable futures={activeFutures} onCancel={cancelFutures} />
+            )}
+            <CancelledDisclosure count={cancelledFutures.length}>
+              <FuturesTable futures={cancelledFutures} onCancel={cancelFutures} />
+            </CancelledDisclosure>
+          </>
+        )}
+        <SettleFuturesPanel season={season} week={week} managers={managers} onDone={() => router.refresh()} />
+      </section>
+
       <RiskSummary atRisk={atRisk} toWin={toWin} />
+    </div>
+  );
+}
+
+function SettleFuturesPanel({
+  season,
+  week,
+  managers,
+  onDone,
+}: {
+  season: number;
+  week: number;
+  managers: ManagerWeekSummary[];
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [championManagerId, setChampionManagerId] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function cancel() {
+    setOpen(false);
+    setChampionManagerId("");
+    setPin("");
+    setError("");
+  }
+
+  async function submit() {
+    if (!championManagerId || !pin) return;
+    const championName = managers.find((m) => m.manager_id === Number(championManagerId))?.display_name;
+    if (
+      !confirm(
+        `Settle every pending futures bet for ${season} — champion: ${championName}? This pays out (or wipes out) every open futures bet at once and can't be undone.`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    setError("");
+    const res = await fetch("/api/admin/settle-futures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ season, championManagerId: Number(championManagerId), week, pin }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok || !data.ok) {
+      setError(data.error ?? "Something went wrong.");
+      return;
+    }
+    cancel();
+    onDone();
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-3 text-xs text-muted hover:text-red-600 dark:hover:text-red-400"
+      >
+        Settle Futures…
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border-color bg-surface p-4">
+      <div className="text-sm font-semibold">Settle {season} Futures</div>
+      <p className="text-xs text-muted">
+        Pick the champion — every pending futures bet on them wins, everyone else loses. This settles
+        the whole season&apos;s futures market at once and can&apos;t be undone.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={championManagerId}
+          onChange={(e) => setChampionManagerId(e.target.value)}
+          className="rounded-md border border-border-color bg-background px-2 py-1 text-xs"
+        >
+          <option value="">Champion…</option>
+          {managers.map((m) => (
+            <option key={m.manager_id} value={m.manager_id}>
+              {m.display_name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="password"
+          inputMode="numeric"
+          placeholder="Admin PIN"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          className="w-24 rounded-md border border-border-color bg-background px-1.5 py-1 text-xs"
+        />
+        <button
+          onClick={submit}
+          disabled={!championManagerId || !pin || loading}
+          className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+        >
+          Settle Season
+        </button>
+        <button onClick={cancel} className="text-xs text-muted hover:text-foreground">
+          Cancel
+        </button>
+      </div>
+      {error && <span className="text-xs text-red-600 dark:text-red-400">{error}</span>}
     </div>
   );
 }

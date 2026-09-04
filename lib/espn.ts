@@ -13,6 +13,22 @@ function cookieHeader(): string {
   return `espn_s2=${c.espn_s2}; SWID=${c.SWID}`;
 }
 
+async function fetchLeagueView(season: number, views: string[]) {
+  const leagueId = process.env.ESPN_LEAGUE_ID!;
+  const url = BASE.replace("{season}", String(season)).replace("{leagueId}", leagueId);
+  const params = new URLSearchParams();
+  for (const v of views) params.append("view", v);
+
+  const res = await fetch(`${url}?${params.toString()}`, {
+    headers: { Cookie: cookieHeader() },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`ESPN fetch failed: ${res.status} ${await res.text()}`);
+  }
+  return res.json();
+}
+
 export type EspnTeam = {
   id: number;
   name: string;
@@ -40,19 +56,7 @@ export type EspnLeagueData = {
 };
 
 export async function fetchLeagueLive(season: number): Promise<EspnLeagueData> {
-  const leagueId = process.env.ESPN_LEAGUE_ID!;
-  const url = BASE.replace("{season}", String(season)).replace("{leagueId}", leagueId);
-  const params = new URLSearchParams();
-  for (const v of ["mTeam", "mMatchupScore", "mLiveScoring"]) params.append("view", v);
-
-  const res = await fetch(`${url}?${params.toString()}`, {
-    headers: { Cookie: cookieHeader() },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    throw new Error(`ESPN fetch failed: ${res.status} ${await res.text()}`);
-  }
-  const data = await res.json();
+  const data = await fetchLeagueView(season, ["mTeam", "mMatchupScore", "mLiveScoring"]);
 
   return {
     scoringPeriodId: data.scoringPeriodId,
@@ -83,4 +87,44 @@ export async function fetchLeagueLive(season: number): Promise<EspnLeagueData> {
       })
     ),
   };
+}
+
+export type EspnTeamPower = {
+  teamId: number;
+  currentProjectedRank: number;
+};
+
+// ESPN's own roster-strength ranking, computed from the draft — the only
+// meaningful "how good is this team" signal that exists before any games
+// have been played. It updates through the season as actual results
+// factor in, so calling this later in the year reflects real performance
+// too, not just the preseason draft.
+export async function fetchTeamPower(season: number): Promise<EspnTeamPower[]> {
+  const data = await fetchLeagueView(season, ["mTeam"]);
+  return (data.teams ?? []).map((t: { id: number; currentProjectedRank: number }) => ({
+    teamId: t.id,
+    currentProjectedRank: t.currentProjectedRank,
+  }));
+}
+
+export type EspnFinalStanding = {
+  teamId: number;
+  rankCalculatedFinal: number;
+};
+
+// A prior season's final standing per team — used as the "past
+// performance" signal for futures odds. Returns an empty array if that
+// season isn't reachable (e.g. the league didn't exist yet), rather than
+// throwing, since this is a secondary signal that should degrade
+// gracefully.
+export async function fetchFinalStandings(season: number): Promise<EspnFinalStanding[]> {
+  try {
+    const data = await fetchLeagueView(season, ["mTeam"]);
+    return (data.teams ?? []).map((t: { id: number; rankCalculatedFinal: number }) => ({
+      teamId: t.id,
+      rankCalculatedFinal: t.rankCalculatedFinal,
+    }));
+  } catch {
+    return [];
+  }
 }

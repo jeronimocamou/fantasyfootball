@@ -116,6 +116,25 @@ CREATE TABLE IF NOT EXISTS slot_spins (
     spun_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Season-long futures — "who wins the championship" bets. Unlike a
+-- weekly bet, these span the whole season, so a pending one keeps
+-- reducing every subsequent week's credit until it's settled (not just
+-- the week it was placed in), and its win/loss lands in whatever week
+-- the house actually settles it — settled_week records that.
+CREATE TABLE IF NOT EXISTS futures_bets (
+    id               SERIAL PRIMARY KEY,
+    manager_id       INTEGER NOT NULL REFERENCES managers(id),  -- bettor
+    season           INTEGER NOT NULL,
+    pick_manager_id  INTEGER NOT NULL REFERENCES managers(id),  -- who they think wins it all
+    amount           NUMERIC(6,2) NOT NULL CHECK (amount > 0),
+    odds             INTEGER NOT NULL,          -- American odds locked in at placement
+    status           TEXT NOT NULL DEFAULT 'pending', -- pending | won | lost | cancelled
+    payout           NUMERIC(8,2),
+    placed_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    settled_at       TIMESTAMPTZ,
+    settled_week     INTEGER
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_season_week ON weekly_lines(season, week);
 CREATE INDEX IF NOT EXISTS idx_bets_manager ON bets(manager_id);
 CREATE INDEX IF NOT EXISTS idx_bets_line ON bets(line_id);
@@ -125,3 +144,5 @@ CREATE INDEX IF NOT EXISTS idx_parlay_legs_line ON parlay_legs(line_id);
 CREATE INDEX IF NOT EXISTS idx_balance_adj_manager_week ON balance_adjustments(manager_id, season, week);
 CREATE INDEX IF NOT EXISTS idx_slot_spins_manager_week ON slot_spins(manager_id, season, week);
 CREATE INDEX IF NOT EXISTS idx_balance_corr_manager_week ON balance_corrections(manager_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_futures_manager ON futures_bets(manager_id, season);
+CREATE INDEX IF NOT EXISTS idx_futures_pick ON futures_bets(pick_manager_id, season);

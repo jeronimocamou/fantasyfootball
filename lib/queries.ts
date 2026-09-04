@@ -1,8 +1,9 @@
 import { getPool } from "./pg";
 import { computeLine, gradeSide, profitForOdds, parlayPayout, DEFAULT_ODDS } from "./betting";
-import { fetchLeagueLive, type EspnTeam } from "./espn";
+import { fetchLeagueLive, fetchTeamPower, fetchFinalStandings, type EspnTeam } from "./espn";
 import { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS } from "./bettingConstants";
 import { spinReels, gradeSpin, SLOT_EMOJI, isValidSlotBet, type SlotSymbol } from "./slots";
+import { computeChampionshipOdds, futuresPayout, type TeamPower } from "./futures";
 
 export { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS };
 
@@ -338,7 +339,7 @@ export type ManagerWeekMoney = {
 // count toward neither figure — the house voiding one means that money
 // was never really at risk and never really won or lost.
 export async function getManagerWeekMoney(managerId: number, season: number, week: number): Promise<ManagerWeekMoney> {
-  const [adjustment, correction, { rows }] = await Promise.all([
+  const [adjustment, correction, { rows }, { rows: futuresRows }] = await Promise.all([
     getManagerWeekAdjustment(managerId, season, week),
     getManagerWeekBalanceCorrection(managerId, season, week),
     getPool().query(
@@ -372,9 +373,25 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
        ) combined`,
       [managerId, season, week]
     ),
+    // Futures span the whole season, not one week — a pending futures
+    // stake keeps reducing credit every week until it's settled (unlike
+    // a normal bet, which only ties up the week it was placed in), and
+    // its win/loss only lands in balance the specific week the house
+    // actually settles it (settled_week), not the week it was placed.
+    getPool().query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS futures_pending,
+         COALESCE(SUM(CASE
+           WHEN status IN ('won', 'lost') AND settled_week = $3 THEN payout - amount
+           ELSE 0
+         END), 0) AS futures_settled_net
+       FROM futures_bets
+       WHERE manager_id = $1 AND season = $2`,
+      [managerId, season, week]
+    ),
   ]);
-  const pendingAtRisk = Number(rows[0].pending_at_risk);
-  const balance = Number(rows[0].settled_net) + correction;
+  const pendingAtRisk = Number(rows[0].pending_at_risk) + Number(futuresRows[0].futures_pending);
+  const balance = Number(rows[0].settled_net) + correction + Number(futuresRows[0].futures_settled_net);
   const credit = Math.max(0, WEEKLY_ALLOWANCE + adjustment + balance - pendingAtRisk);
   return { balance, pendingAtRisk, credit };
 }
@@ -448,6 +465,156 @@ export async function getManagerSlotHistory(managerId: number): Promise<SlotHist
     [managerId]
   );
   return rows;
+}
+
+// ---- Futures (championship odds) ----
+
+export type FuturesOddsRow = {
+  managerId: number;
+  displayName: string;
+  teamName: string;
+  americanOdds: number;
+  impliedProbability: number;
+};
+
+// Blends this season's ESPN roster-strength ranking with last season's
+// final standing into championship odds for every manager. Computed live
+// from ESPN each call rather than stored/snapshotted — unlike a weekly
+// betting line, a futures price is expected to drift as the season's
+// actual results come in, and a placed bet already locks in its own odds
+// at bet time regardless of what this returns later.
+export async function getChampionshipOdds(season: number): Promise<FuturesOddsRow[]> {
+  const [managers, currentPower, lastSeasonStandings] = await Promise.all([
+    getManagers(),
+    fetchTeamPower(season),
+    fetchFinalStandings(season - 1),
+  ]);
+
+  const currentByTeam = new Map(currentPower.map((t) => [t.teamId, t.currentProjectedRank]));
+  const lastSeasonByTeam = new Map(lastSeasonStandings.map((t) => [t.teamId, t.rankCalculatedFinal]));
+
+  const teams: TeamPower[] = managers.map((m) => ({
+    managerId: m.id,
+    currentRank: currentByTeam.get(m.espn_team_id) ?? managers.length,
+    lastSeasonRank: lastSeasonByTeam.get(m.espn_team_id) ?? null,
+  }));
+
+  const odds = computeChampionshipOdds(teams);
+  const managersById = new Map(managers.map((m) => [m.id, m]));
+
+  return odds.map((o) => {
+    const m = managersById.get(o.managerId)!;
+    return {
+      managerId: o.managerId,
+      displayName: m.display_name,
+      teamName: m.team_name,
+      americanOdds: o.americanOdds,
+      impliedProbability: o.impliedProbability,
+    };
+  });
+}
+
+export type PlaceFuturesResult =
+  | { ok: true; futuresBetId: number }
+  | { ok: false; error: string };
+
+export async function placeFuturesBet(
+  managerId: number,
+  season: number,
+  week: number,
+  pickManagerId: number,
+  amount: number
+): Promise<PlaceFuturesResult> {
+  if (amount < MIN_BET) return { ok: false, error: `Minimum bet is $${MIN_BET}.` };
+
+  const { credit } = await getManagerWeekMoney(managerId, season, week);
+  if (amount > credit + 1e-9) {
+    return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };
+  }
+
+  const odds = await getChampionshipOdds(season);
+  const pick = odds.find((o) => o.managerId === pickManagerId);
+  if (!pick) return { ok: false, error: "Invalid pick." };
+
+  const { rows } = await getPool().query(
+    `INSERT INTO futures_bets (manager_id, season, pick_manager_id, amount, odds)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [managerId, season, pickManagerId, amount, pick.americanOdds]
+  );
+  return { ok: true, futuresBetId: rows[0].id };
+}
+
+export type FuturesHistoryRow = {
+  id: number;
+  season: number;
+  amount: string;
+  odds: number;
+  status: string;
+  payout: string | null;
+  placed_at: string;
+  pick_display_name: string;
+};
+
+export async function getManagerFuturesBets(managerId: number): Promise<FuturesHistoryRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT f.id, f.season, f.amount, f.odds, f.status, f.payout, f.placed_at,
+            pick.display_name AS pick_display_name
+     FROM futures_bets f
+     JOIN managers pick ON pick.id = f.pick_manager_id
+     WHERE f.manager_id = $1
+     ORDER BY f.placed_at DESC`,
+    [managerId]
+  );
+  return rows;
+}
+
+export type AdminFuturesRow = {
+  id: number;
+  manager_name: string;
+  pick_display_name: string;
+  amount: string;
+  odds: number;
+  status: string;
+  payout: string | null;
+  placed_at: string;
+};
+
+export async function getAllFuturesBets(season: number): Promise<AdminFuturesRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT f.id, bettor.display_name AS manager_name, pick.display_name AS pick_display_name,
+            f.amount, f.odds, f.status, f.payout, f.placed_at
+     FROM futures_bets f
+     JOIN managers bettor ON bettor.id = f.manager_id
+     JOIN managers pick ON pick.id = f.pick_manager_id
+     WHERE f.season = $1
+     ORDER BY f.placed_at DESC`,
+    [season]
+  );
+  return rows;
+}
+
+// Grades every still-pending futures bet for the season against the
+// house-selected champion — the house picks the winner manually rather
+// than trying to auto-detect it from ESPN's own final rank, since a
+// league's actual champion (toilet bowls, unique tiebreakers, etc.) isn't
+// always a clean read from the API. settled_week is whatever week is
+// current at settlement time, so the payout lands in a real week's
+// balance instead of nowhere.
+export async function settleFutures(season: number, championManagerId: number, week: number): Promise<AdminResult> {
+  const pool = getPool();
+  const { rows: pending } = await pool.query(
+    `SELECT id, pick_manager_id, amount, odds FROM futures_bets WHERE season = $1 AND status = 'pending'`,
+    [season]
+  );
+  for (const bet of pending) {
+    const won = bet.pick_manager_id === championManagerId;
+    const payout = won ? futuresPayout(Number(bet.amount), bet.odds) : 0;
+    await pool.query(
+      `UPDATE futures_bets SET status = $1, payout = $2, settled_at = now(), settled_week = $3 WHERE id = $4`,
+      [won ? "won" : "lost", payout, week, bet.id]
+    );
+  }
+  return { ok: true };
 }
 
 export type PlaceBetResult =
@@ -682,6 +849,16 @@ export async function cancelParlay(parlayId: number): Promise<AdminResult> {
   const pool = getPool();
   await pool.query(`UPDATE parlays SET status='cancelled' WHERE id=$1`, [parlayId]);
   await pool.query(`UPDATE parlay_legs SET status='cancelled' WHERE parlay_id=$1`, [parlayId]);
+  return { ok: true };
+}
+
+export async function cancelFuturesBet(futuresBetId: number): Promise<AdminResult> {
+  const { rows } = await getPool().query(`SELECT status FROM futures_bets WHERE id=$1`, [futuresBetId]);
+  if (!rows[0]) return { ok: false, error: "Futures bet not found." };
+  if (rows[0].status !== "pending") {
+    return { ok: false, error: "Only a pending futures bet can be cancelled." };
+  }
+  await getPool().query(`UPDATE futures_bets SET status='cancelled' WHERE id=$1`, [futuresBetId]);
   return { ok: true };
 }
 

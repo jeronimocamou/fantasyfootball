@@ -42,6 +42,7 @@ export default function Nav({
         <div className="flex flex-wrap items-center gap-3">
           <nav className="flex flex-wrap items-center gap-1">
             <NavLink href="/">Board</NavLink>
+            <NavLink href="/futures">Futures</NavLink>
             <NavLink href="/my-bets">My Bets</NavLink>
             <NavLink href="/leaderboard">Leaderboard</NavLink>
           </nav>

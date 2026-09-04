@@ -5,6 +5,7 @@ import {
   getAllManagerWeekSummaries,
   getAllBetsForWeek,
   getAllParlaysForWeek,
+  getAllFuturesBets,
 } from "@/lib/queries";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 
@@ -25,13 +26,21 @@ export default async function AdminPage() {
     );
   }
 
-  const [managers, bets, parlays] = await Promise.all([
+  const [managers, bets, parlays, futures] = await Promise.all([
     getAllManagerWeekSummaries(SEASON, week),
     getAllBetsForWeek(SEASON, week),
     getAllParlaysForWeek(SEASON, week),
+    getAllFuturesBets(SEASON),
   ]);
 
   return (
-    <AdminDashboard season={SEASON} week={week} managers={managers} bets={bets} parlays={parlays} />
+    <AdminDashboard
+      season={SEASON}
+      week={week}
+      managers={managers}
+      bets={bets}
+      parlays={parlays}
+      futures={futures}
+    />
   );
 }
