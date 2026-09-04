@@ -484,10 +484,11 @@ export type FuturesOddsRow = {
 // actual results come in, and a placed bet already locks in its own odds
 // at bet time regardless of what this returns later.
 export async function getChampionshipOdds(season: number): Promise<FuturesOddsRow[]> {
-  const [managers, currentPower, lastSeasonStandings] = await Promise.all([
+  const [managers, currentPower, lastSeasonStandings, week] = await Promise.all([
     getManagers(),
     fetchTeamPower(season),
     fetchFinalStandings(season - 1),
+    getCurrentWeek(season),
   ]);
 
   const currentByTeam = new Map(currentPower.map((t) => [t.teamId, t.currentProjectedRank]));
@@ -499,7 +500,7 @@ export async function getChampionshipOdds(season: number): Promise<FuturesOddsRo
     lastSeasonRank: lastSeasonByTeam.get(m.espn_team_id) ?? null,
   }));
 
-  const odds = computeChampionshipOdds(teams);
+  const odds = computeChampionshipOdds(teams, week ?? 1);
   const managersById = new Map(managers.map((m) => [m.id, m]));
 
   return odds.map((o) => {

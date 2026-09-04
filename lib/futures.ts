@@ -61,12 +61,15 @@ function probabilityFromAmericanOdds(odds: number): number {
 // decided that was too short a price to offer on the top two regardless
 // of what the model says, and pinned them here instead. Order between the
 // two (Michael still shorter than Logan) still matches their model rank.
+// Fixed for week 1 only (see MANUAL_ODDS_OVERRIDE_WEEK) — from week 2 on,
+// both go back to whatever the model computes.
 const MANUAL_ODDS_OVERRIDES: Record<number, number> = {
   1: 155, // Michael Grabel
   4: 190, // logan guerrieri
 };
+const MANUAL_ODDS_OVERRIDE_WEEK = 1;
 
-export function computeChampionshipOdds(teams: TeamPower[]): ChampionshipOdds[] {
+export function computeChampionshipOdds(teams: TeamPower[], week: number): ChampionshipOdds[] {
   if (teams.length === 0) return [];
 
   const currentRanks = teams.map((t) => t.currentRank);
@@ -101,7 +104,7 @@ export function computeChampionshipOdds(teams: TeamPower[]): ChampionshipOdds[] 
   const vig = minProbabilityNeeded / minShrunkProbability;
 
   return teams.map((t, i) => {
-    const override = MANUAL_ODDS_OVERRIDES[t.managerId];
+    const override = week <= MANUAL_ODDS_OVERRIDE_WEEK ? MANUAL_ODDS_OVERRIDES[t.managerId] : undefined;
     if (override !== undefined) {
       return { managerId: t.managerId, impliedProbability: probabilityFromAmericanOdds(override), americanOdds: override };
     }
