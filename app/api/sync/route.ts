@@ -18,10 +18,7 @@ function isAuthorized(req: NextRequest): boolean {
   return header === secret || query === secret;
 }
 
-export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+async function runSync(): Promise<NextResponse> {
   try {
     await syncSeason(SEASON);
     return NextResponse.json({ ok: true });
@@ -31,7 +28,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runSync();
+}
+
+// vercel.json fires this cron at two fixed UTC times, one an hour apart
+// from the other — a single UTC slot would land on 8:30pm Eastern for
+// only half the season and drift to 7:30 or 9:30 once the US clock
+// changes for DST. Rather than hand-editing the schedule again every
+// November/March, both slots fire every day and this checks which one
+// (if either) is actually 8:30pm Eastern right now; the other is a
+// harmless no-op.
+function isEightThirtyEastern(): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(new Date());
+  const hour = Number(parts.find((p) => p.type === "hour")?.value);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value);
+  return hour === 20 && minute >= 25 && minute <= 35;
+}
+
 // Vercel Cron issues GET requests to the configured path.
 export async function GET(req: NextRequest) {
-  return POST(req);
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isEightThirtyEastern()) {
+    return NextResponse.json({ ok: true, skipped: "not the active 8:30pm ET slot" });
+  }
+  return runSync();
 }
