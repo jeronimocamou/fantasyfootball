@@ -35,11 +35,8 @@ export default function Nav({
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/40 bg-accent-soft font-display text-base font-semibold text-accent">
             CY
           </span>
-          <div>
-            <div className="font-display text-lg font-semibold leading-tight tracking-tight">
-              Crackyard Sportsbook
-            </div>
-            <div className="text-xs text-muted">Lines set from ESPN projections</div>
+          <div className="font-display text-lg font-semibold leading-tight tracking-tight">
+            Crackyard Sportsbook
           </div>
         </Link>
         <div className="flex flex-wrap items-center gap-3">
