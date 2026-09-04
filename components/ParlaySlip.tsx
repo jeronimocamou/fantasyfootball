@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useParlay } from "./ParlayContext";
 import { americanToDecimal } from "@/lib/betting";
@@ -19,7 +19,14 @@ export default function ParlaySlip({
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "done">("idle");
   const [error, setError] = useState("");
 
-  if (legs.length === 0) return null;
+  // The success banner is transient: dismiss it on its own after a few
+  // seconds. Selecting a new leg clears it immediately too, since that's
+  // handled below by requiring legs.length === 0 to show it at all.
+  useEffect(() => {
+    if (status !== "done") return;
+    const timer = setTimeout(() => setStatus("idle"), 5000);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   const numericAmount = Number(amount);
   const validAmount = numericAmount > 0 ? numericAmount : 0;
@@ -65,13 +72,37 @@ export default function ParlaySlip({
     router.refresh();
   }
 
-  if (status === "done") {
+  if (status === "done" && legs.length === 0) {
     return (
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-color bg-surface p-4 text-center text-sm text-emerald-600 shadow-lg dark:text-emerald-400">
-        Parlay placed.
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-color bg-surface shadow-lg">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-6 py-4">
+          <span className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M8.5 12.5l2.5 2.5 5-5" />
+            </svg>
+            Parlay placed
+          </span>
+          <button
+            onClick={() => router.push("/my-bets")}
+            className="rounded-full bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+          >
+            View in My Bets
+          </button>
+        </div>
       </div>
     );
   }
+
+  if (legs.length === 0) return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border-color bg-surface shadow-lg">
