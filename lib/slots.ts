@@ -29,14 +29,17 @@ const SLOT_WEIGHTS: { symbol: SlotSymbol; weight: number }[] = [
 // kind no longer breaking even pulls the overall average payout well
 // below the stake, so it can't be farmed as free credit for the real
 // board. Jackpot (seven/seven/seven) odds: (10/100)^3 = 1 in 1,000 spins.
-const THREE_OF_A_KIND_PAYOUT: Record<SlotSymbol, number> = {
+export const THREE_OF_A_KIND_PAYOUT: Record<SlotSymbol, number> = {
   cherry: 2,
   lemon: 3,
   bell: 6,
   seven: 15,
 };
 
-const TWO_OF_A_KIND_PAYOUT_FRACTION = 0.5;
+export const TWO_OF_A_KIND_PAYOUT_FRACTION = 0.5;
+
+// Display order for the paytable popout — cheapest to jackpot.
+export const SLOT_SYMBOL_ORDER: SlotSymbol[] = ["cherry", "lemon", "bell", "seven"];
 
 export function spinReel(random: () => number = Math.random): SlotSymbol {
   const roll = random() * 100;

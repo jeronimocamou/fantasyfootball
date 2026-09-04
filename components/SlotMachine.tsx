@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SLOT_EMOJI, SLOT_BET_AMOUNT } from "@/lib/slots";
+import {
+  SLOT_EMOJI,
+  SLOT_BET_AMOUNT,
+  SLOT_SYMBOL_ORDER,
+  THREE_OF_A_KIND_PAYOUT,
+  TWO_OF_A_KIND_PAYOUT_FRACTION,
+} from "@/lib/slots";
 
 const REEL_SYMBOLS = Object.values(SLOT_EMOJI);
 const SPIN_MS = 2200; // all three reels blur before any of them stop
@@ -25,6 +31,7 @@ export default function SlotMachine({ initialCredit }: { initialCredit: number }
   const [reels, setReels] = useState<string[]>(["🍒", "🍋", "🔔"]);
   const [spinning, setSpinning] = useState(false);
   const [leverPulled, setLeverPulled] = useState(false);
+  const [showPaytable, setShowPaytable] = useState(false);
   const [outcome, setOutcome] = useState<{ result: Outcome; payout: number } | null>(null);
   const [error, setError] = useState("");
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -151,7 +158,7 @@ export default function SlotMachine({ initialCredit }: { initialCredit: number }
           {error && <span className="text-red-400">{error}</span>}
         </div>
 
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex items-center justify-center gap-2">
           <button
             onClick={spin}
             disabled={spinning || credit < SLOT_BET_AMOUNT}
@@ -159,16 +166,64 @@ export default function SlotMachine({ initialCredit }: { initialCredit: number }
           >
             {spinning ? "Spinning…" : `Pull — $${SLOT_BET_AMOUNT}`}
           </button>
+          <button
+            onClick={() => setShowPaytable((v) => !v)}
+            className="rounded-full border border-[#e0b84a]/60 px-4 py-2.5 text-xs font-semibold text-[#e0b84a] transition-colors hover:bg-[#e0b84a]/10"
+          >
+            Payouts
+          </button>
         </div>
-
-        <p className="mt-4 text-center text-[11px] leading-relaxed text-[#a89b85]">
-          Three of a kind pays out — 7️⃣7️⃣7️⃣ is the jackpot (15x). Two matching pays
-          half back. No match loses the spin.
-        </p>
       </div>
 
       {/* base */}
       <div className="mx-auto h-3 w-4/5 rounded-b-lg bg-[#150f06]" />
+
+      {/* paytable popout */}
+      {showPaytable && (
+        <div className="absolute inset-x-2 top-6 z-20 rounded-2xl border-2 border-[#e0b84a] bg-[#140d05] p-4 shadow-2xl">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="font-display text-sm font-bold tracking-[0.15em] text-[#e0b84a]">PAYTABLE</span>
+            <button
+              onClick={() => setShowPaytable(false)}
+              aria-label="Close paytable"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[#a89b85] hover:bg-white/10 hover:text-[#e0b84a]"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex flex-col divide-y divide-[#3a2b17]">
+            {SLOT_SYMBOL_ORDER.map((symbol) => (
+              <div key={symbol} className="flex items-center justify-between py-2">
+                <span className="text-xl">
+                  {SLOT_EMOJI[symbol]}
+                  {SLOT_EMOJI[symbol]}
+                  {SLOT_EMOJI[symbol]}
+                </span>
+                <span className="flex items-center gap-2">
+                  {symbol === "seven" && (
+                    <span className="rounded-full bg-[#e0b84a] px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#221808]">
+                      JACKPOT
+                    </span>
+                  )}
+                  <span className="font-display text-sm font-semibold text-[#e0b84a]">
+                    {THREE_OF_A_KIND_PAYOUT[symbol]}×
+                  </span>
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-[#cfc2a8]">Any two matching</span>
+              <span className="font-display text-sm font-semibold text-[#e0b84a]">
+                {TWO_OF_A_KIND_PAYOUT_FRACTION}× back
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-sm text-[#cfc2a8]">No match</span>
+              <span className="font-display text-sm font-semibold text-red-400">Lose stake</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
