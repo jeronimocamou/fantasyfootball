@@ -139,6 +139,8 @@ export default function AdminDashboard({
   const activeParlays = parlays.filter((p) => p.status !== "cancelled");
   const cancelledParlays = parlays.filter((p) => p.status === "cancelled");
 
+  const totalBalance = managers.reduce((sum, m) => sum + m.balance, 0);
+
   const pendingBets = bets.filter((b) => b.status === "pending");
   const pendingParlays = parlays.filter((p) => p.status === "pending");
   const atRisk =
@@ -228,6 +230,23 @@ export default function AdminDashboard({
                 />
               ))}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-border-color font-semibold">
+                <td className="px-4 py-3">Total</td>
+                <td className="px-4 py-3"></td>
+                <td
+                  className={`px-4 py-3 text-right tabular-nums ${
+                    totalBalance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {totalBalance >= 0 ? "+$" : "-$"}
+                  {Math.abs(totalBalance).toFixed(2)}
+                </td>
+                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </section>
