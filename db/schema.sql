@@ -71,16 +71,33 @@ CREATE TABLE IF NOT EXISTS parlay_legs (
     UNIQUE (parlay_id, line_id)
 );
 
--- House-managed adjustments to a manager's weekly allowance (bonus credit
--- or a penalty), on top of the flat per-week base. Positive = added,
--- negative = deducted. Kept as a ledger (not a mutated balance field) so
--- there's an audit trail of who adjusted what and why.
+-- House-managed adjustments to a manager's weekly CREDIT (bonus or a
+-- penalty on top of the flat per-week allowance) — this never touches
+-- the displayed Balance figure, only what's available to bet with.
+-- Positive = added, negative = deducted. Kept as a ledger (not a mutated
+-- field) so there's an audit trail of who adjusted what and why.
 CREATE TABLE IF NOT EXISTS balance_adjustments (
     id          SERIAL PRIMARY KEY,
     manager_id  INTEGER NOT NULL REFERENCES managers(id),
     season      INTEGER NOT NULL,
     week        INTEGER NOT NULL,
     amount      NUMERIC(6,2) NOT NULL,
+    note        TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- A separate ledger from balance_adjustments above — this one is the
+-- *only* thing that can move the displayed Balance figure (what a
+-- manager has actually won or lost), and the only writer is the House
+-- Dashboard's "Reset Balance" action. Kept distinct from
+-- balance_adjustments so a plain credit bonus/penalty can never
+-- accidentally alter Balance, and vice versa.
+CREATE TABLE IF NOT EXISTS balance_corrections (
+    id          SERIAL PRIMARY KEY,
+    manager_id  INTEGER NOT NULL REFERENCES managers(id),
+    season      INTEGER NOT NULL,
+    week        INTEGER NOT NULL,
+    amount      NUMERIC(8,2) NOT NULL,
     note        TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -107,3 +124,4 @@ CREATE INDEX IF NOT EXISTS idx_parlay_legs_parlay ON parlay_legs(parlay_id);
 CREATE INDEX IF NOT EXISTS idx_parlay_legs_line ON parlay_legs(line_id);
 CREATE INDEX IF NOT EXISTS idx_balance_adj_manager_week ON balance_adjustments(manager_id, season, week);
 CREATE INDEX IF NOT EXISTS idx_slot_spins_manager_week ON slot_spins(manager_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_balance_corr_manager_week ON balance_corrections(manager_id, season, week);

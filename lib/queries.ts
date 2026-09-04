@@ -289,11 +289,25 @@ export async function getCurrentWeek(season: number): Promise<number | null> {
   return rows[0]?.w ?? null;
 }
 
-// House-managed bonus/penalty credit for a manager's week, on top of the
-// flat WEEKLY_ALLOWANCE base.
+// House-managed bonus/penalty to a manager's weekly CREDIT, on top of the
+// flat WEEKLY_ALLOWANCE base — this never touches the displayed Balance,
+// only what's available to bet with (see getManagerWeekMoney).
 export async function getManagerWeekAdjustment(managerId: number, season: number, week: number): Promise<number> {
   const { rows } = await getPool().query(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM balance_adjustments
+     WHERE manager_id = $1 AND season = $2 AND week = $3`,
+    [managerId, season, week]
+  );
+  return Number(rows[0].total);
+}
+
+// House-only correction to a manager's weekly BALANCE — the only writer
+// is resetManagerWeekBalance. Kept as its own ledger, separate from
+// balance_adjustments, so a credit bonus/penalty can never accidentally
+// move Balance and vice versa.
+async function getManagerWeekBalanceCorrection(managerId: number, season: number, week: number): Promise<number> {
+  const { rows } = await getPool().query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM balance_corrections
      WHERE manager_id = $1 AND season = $2 AND week = $3`,
     [managerId, season, week]
   );
@@ -309,23 +323,24 @@ export type ManagerWeekMoney = {
 // Splits a manager's week into two numbers instead of one flat allowance:
 //   - balance: what you've actually won or lost this week — net
 //     profit/loss from settled bets (won/lost/push) plus any house
-//     adjustment. Starts at 0 each week; can go negative. Folding the
-//     adjustment in here (rather than into the allowance) is what makes
-//     resetManagerWeekBalance's "reset to $0" trivial: it's just an
-//     adjustment of -balance.
+//     "Reset Balance" correction. Starts at 0 each week; can go
+//     negative. This is deliberately NOT affected by the "Adjust"
+//     column's credit adjustment — the only way to move Balance is
+//     resetManagerWeekBalance.
 //   - credit: what's actually available to place new bets with right
-//     now — the base allowance plus balance, minus whatever's currently
-//     tied up in pending bets. Floored at 0, but goes back up above the
-//     starting allowance as bets win, since a win frees up more than the
-//     stake that was risked.
+//     now — the base allowance plus any credit adjustment plus balance,
+//     minus whatever's currently tied up in pending bets. Floored at 0,
+//     but goes back up above the starting allowance as bets win, since
+//     a win frees up more than the stake that was risked.
 // A parlay's legs are always drawn from whatever week is currently open
 // (only one week is ever open at a time), so checking any one leg's week
 // is enough to attribute the whole parlay to it. Cancelled bets/parlays
 // count toward neither figure — the house voiding one means that money
 // was never really at risk and never really won or lost.
 export async function getManagerWeekMoney(managerId: number, season: number, week: number): Promise<ManagerWeekMoney> {
-  const [adjustment, { rows }] = await Promise.all([
+  const [adjustment, correction, { rows }] = await Promise.all([
     getManagerWeekAdjustment(managerId, season, week),
+    getManagerWeekBalanceCorrection(managerId, season, week),
     getPool().query(
       `SELECT
          COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_at_risk,
@@ -360,20 +375,21 @@ export async function getManagerWeekMoney(managerId: number, season: number, wee
     ),
   ]);
   const pendingAtRisk = Number(rows[0].pending_at_risk);
-  const balance = Number(rows[0].settled_net) + adjustment;
-  const credit = Math.max(0, WEEKLY_ALLOWANCE + balance - pendingAtRisk);
+  const balance = Number(rows[0].settled_net) + correction;
+  const credit = Math.max(0, WEEKLY_ALLOWANCE + adjustment + balance - pendingAtRisk);
   return { balance, pendingAtRisk, credit };
 }
 
 // Zeroes out a manager's balance for the week by inserting a
-// balance_adjustments row for exactly -balance — the existing ledger
-// mechanism, not a new one, so this stays a fully auditable entry rather
-// than mutating or deleting real settled bet/parlay/spin history.
+// balance_corrections row for exactly -balance. This is the only
+// function that writes to balance_corrections — the "Adjust" column's
+// credit bonus/penalty lives in the separate balance_adjustments table
+// and never affects Balance.
 export async function resetManagerWeekBalance(managerId: number, season: number, week: number): Promise<AdminResult> {
   const { balance } = await getManagerWeekMoney(managerId, season, week);
   if (Math.abs(balance) < 0.005) return { ok: true };
   await getPool().query(
-    `INSERT INTO balance_adjustments (manager_id, season, week, amount, note) VALUES ($1, $2, $3, $4, $5)`,
+    `INSERT INTO balance_corrections (manager_id, season, week, amount, note) VALUES ($1, $2, $3, $4, $5)`,
     [managerId, season, week, -balance, "Balance reset by house"]
   );
   return { ok: true };
