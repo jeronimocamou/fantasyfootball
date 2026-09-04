@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ManagerWeekSummary, AdminBetRow, AdminParlayRow } from "@/lib/queries";
 import { profitForOdds, parlayPayout } from "@/lib/betting";
@@ -355,7 +356,11 @@ function ManagerRow({
 
   return (
     <tr className="border-t border-border-color/60">
-      <td className="px-4 py-3 font-medium">{manager.display_name}</td>
+      <td className="px-4 py-3 font-medium">
+        <Link href={`/admin/managers/${manager.manager_id}`} className="hover:text-accent hover:underline">
+          {manager.display_name}
+        </Link>
+      </td>
       <td className="px-4 py-3 text-right tabular-nums font-semibold">${manager.credit.toFixed(2)}</td>
       <td
         className={`px-4 py-3 text-right tabular-nums ${

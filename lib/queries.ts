@@ -429,6 +429,27 @@ export async function playSlotSpin(
   return { ok: true, reels, amount, payout, credit: after.credit, balance: after.balance };
 }
 
+export type SlotHistoryRow = {
+  id: number;
+  season: number;
+  week: number;
+  amount: string;
+  payout: string;
+  reels: string;
+  spun_at: string;
+};
+
+// Full spin history for one manager, all weeks — the admin-only view
+// referenced from the House Dashboard's manager detail page.
+export async function getManagerSlotHistory(managerId: number): Promise<SlotHistoryRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT id, season, week, amount, payout, reels, spun_at
+     FROM slot_spins WHERE manager_id = $1 ORDER BY spun_at DESC`,
+    [managerId]
+  );
+  return rows;
+}
+
 export type PlaceBetResult =
   | { ok: true; betId: number }
   | { ok: false; error: string };
