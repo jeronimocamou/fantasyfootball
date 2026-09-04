@@ -188,10 +188,9 @@ export default function AdminDashboard({
             <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3">Manager</th>
-                <th className="px-4 py-3 text-right">Spent</th>
+                <th className="px-4 py-3 text-right">Credit</th>
+                <th className="px-4 py-3 text-right">Balance</th>
                 <th className="px-4 py-3 text-right">Adjustment</th>
-                <th className="px-4 py-3 text-right">Allowance</th>
-                <th className="px-4 py-3 text-right">Remaining</th>
                 <th className="px-4 py-3">Adjust</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -288,13 +287,19 @@ function ManagerRow({
   return (
     <tr className="border-t border-border-color/60">
       <td className="px-4 py-3 font-medium">{manager.display_name}</td>
-      <td className="px-4 py-3 text-right tabular-nums">${manager.spent.toFixed(2)}</td>
+      <td className="px-4 py-3 text-right tabular-nums font-semibold">${manager.credit.toFixed(2)}</td>
+      <td
+        className={`px-4 py-3 text-right tabular-nums ${
+          manager.balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+        }`}
+      >
+        {manager.balance >= 0 ? "+" : ""}
+        {manager.balance.toFixed(2)}
+      </td>
       <td className="px-4 py-3 text-right tabular-nums">
         {manager.adjustment >= 0 ? "+" : ""}
         {manager.adjustment.toFixed(2)}
       </td>
-      <td className="px-4 py-3 text-right tabular-nums">${manager.allowance.toFixed(2)}</td>
-      <td className="px-4 py-3 text-right tabular-nums font-semibold">${manager.remaining.toFixed(2)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-1.5">
           <input

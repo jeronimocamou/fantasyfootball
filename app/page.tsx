@@ -1,4 +1,4 @@
-import { getWeekBoard, getCurrentWeek, getManagerWeekRemaining, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
+import { getWeekBoard, getCurrentWeek, getManagerWeekMoney, WEEKLY_ALLOWANCE, MIN_BET } from "@/lib/queries";
 import { getCurrentManagerId } from "@/lib/identity";
 import BetForm from "@/components/BetForm";
 import ParlayToggle from "@/components/ParlayToggle";
@@ -36,9 +36,11 @@ export default async function BoardPage() {
   }
 
   const lines = await getWeekBoard(SEASON, week);
-  const remaining = currentManagerId
-    ? await getManagerWeekRemaining(currentManagerId, SEASON, week)
-    : 0;
+  const money = currentManagerId
+    ? await getManagerWeekMoney(currentManagerId, SEASON, week)
+    : null;
+  const credit = money?.credit ?? 0;
+  const balance = money?.balance ?? 0;
 
   return (
     <ParlayProvider>
@@ -49,14 +51,27 @@ export default async function BoardPage() {
             <p className="mt-1 text-sm text-muted">
               Spreads set from ESPN&apos;s live projected totals. Lines lock at
               kickoff and go final once ESPN calls the matchup. ${MIN_BET} minimum
-              bet, ${WEEKLY_ALLOWANCE} allowance per week. Pick 2+ legs to build a
-              parlay.
+              bet, ${WEEKLY_ALLOWANCE} credit to start each week. Pick 2+ legs to
+              build a parlay.
             </p>
           </div>
           {currentManagerId && (
-            <div className="text-right text-sm">
-              <div className="text-xs uppercase tracking-wide text-muted">Remaining this week</div>
-              <div className="text-lg font-bold">${remaining.toFixed(2)}</div>
+            <div className="flex gap-6 text-right text-sm">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted">Credit</div>
+                <div className="text-lg font-bold tabular-nums">${credit.toFixed(2)}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted">Balance</div>
+                <div
+                  className={`text-lg font-bold tabular-nums ${
+                    balance >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                  }`}
+                >
+                  {balance >= 0 ? "+" : ""}
+                  {balance.toFixed(2)}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -66,9 +81,9 @@ export default async function BoardPage() {
             Pick your name in the top right to place bets.
           </p>
         )}
-        {currentManagerId != null && remaining > 0 && remaining < MIN_BET && (
+        {currentManagerId != null && credit > 0 && credit < MIN_BET && (
           <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
-            Only ${remaining.toFixed(2)} left this week — below the ${MIN_BET} minimum, so betting is closed until next week.
+            Only ${credit.toFixed(2)} of credit left — below the ${MIN_BET} minimum, so betting is closed until next week.
           </p>
         )}
 
@@ -78,7 +93,7 @@ export default async function BoardPage() {
             const isOwnMatchup =
               currentManagerId === line.team_a_id || currentManagerId === line.team_b_id;
             const canBet =
-              currentManagerId != null && !isOwnMatchup && line.status === "open" && remaining >= MIN_BET;
+              currentManagerId != null && !isOwnMatchup && line.status === "open" && credit >= MIN_BET;
             const spreadADisplay = formatSpread(Number(line.spread));
             const spreadBDisplay = formatSpread(-Number(line.spread));
 
@@ -106,7 +121,7 @@ export default async function BoardPage() {
                           lineId={line.id}
                           sideManagerId={line.team_a_id}
                           sideLabel={line.team_a_name}
-                          maxAmount={remaining}
+                          maxAmount={credit}
                           odds={line.odds}
                         />
                         <ParlayToggle
@@ -139,7 +154,7 @@ export default async function BoardPage() {
                           lineId={line.id}
                           sideManagerId={line.team_b_id}
                           sideLabel={line.team_b_name}
-                          maxAmount={remaining}
+                          maxAmount={credit}
                           odds={line.odds}
                         />
                         <ParlayToggle
@@ -161,7 +176,7 @@ export default async function BoardPage() {
           })}
         </div>
       </div>
-      <ParlaySlip managerId={currentManagerId} maxAmount={remaining} />
+      <ParlaySlip managerId={currentManagerId} maxAmount={credit} />
     </ParlayProvider>
   );
 }

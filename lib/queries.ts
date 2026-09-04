@@ -288,29 +288,6 @@ export async function getCurrentWeek(season: number): Promise<number | null> {
   return rows[0]?.w ?? null;
 }
 
-// Straight-bet stakes plus parlay stakes both count against the same
-// weekly allowance. A parlay's legs are always drawn from whatever week
-// is currently open (only one week is ever open at a time), so checking
-// any one leg's week is enough to attribute the whole parlay to it.
-// Cancelled bets/parlays don't count as spent — the house voiding one
-// means that money was never really at risk.
-export async function getManagerWeekSpent(managerId: number, season: number, week: number): Promise<number> {
-  const { rows } = await getPool().query(
-    `SELECT COALESCE(SUM(amount), 0) AS spent FROM (
-       SELECT b.amount FROM bets b JOIN weekly_lines wl ON wl.id = b.line_id
-       WHERE b.manager_id = $1 AND wl.season = $2 AND wl.week = $3 AND b.status != 'cancelled'
-       UNION ALL
-       SELECT p.amount FROM parlays p
-       WHERE p.manager_id = $1 AND p.status != 'cancelled' AND EXISTS (
-         SELECT 1 FROM parlay_legs pl JOIN weekly_lines wl ON wl.id = pl.line_id
-         WHERE pl.parlay_id = p.id AND wl.season = $2 AND wl.week = $3
-       )
-     ) combined`,
-    [managerId, season, week]
-  );
-  return Number(rows[0].spent);
-}
-
 // House-managed bonus/penalty credit for a manager's week, on top of the
 // flat WEEKLY_ALLOWANCE base.
 export async function getManagerWeekAdjustment(managerId: number, season: number, week: number): Promise<number> {
@@ -327,12 +304,54 @@ export async function getManagerWeekAllowance(managerId: number, season: number,
   return WEEKLY_ALLOWANCE + adjustment;
 }
 
-export async function getManagerWeekRemaining(managerId: number, season: number, week: number): Promise<number> {
-  const [allowance, spent] = await Promise.all([
+export type ManagerWeekMoney = {
+  allowance: number;
+  balance: number;
+  pendingAtRisk: number;
+  credit: number;
+};
+
+// Splits a manager's week into two numbers instead of one flat allowance:
+//   - balance: net profit/loss from bets that have already settled this
+//     week (won/lost/push). Starts at 0 each week; can go negative.
+//   - credit: what's actually available to place new bets with right
+//     now — the base allowance plus balance, minus whatever's currently
+//     tied up in pending bets. Floored at 0, but goes back up above the
+//     starting allowance as bets win, since a win frees up more than the
+//     stake that was risked.
+// A parlay's legs are always drawn from whatever week is currently open
+// (only one week is ever open at a time), so checking any one leg's week
+// is enough to attribute the whole parlay to it. Cancelled bets/parlays
+// count toward neither figure — the house voiding one means that money
+// was never really at risk and never really won or lost.
+export async function getManagerWeekMoney(managerId: number, season: number, week: number): Promise<ManagerWeekMoney> {
+  const [allowance, { rows }] = await Promise.all([
     getManagerWeekAllowance(managerId, season, week),
-    getManagerWeekSpent(managerId, season, week),
+    getPool().query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_at_risk,
+         COALESCE(SUM(CASE
+           WHEN status = 'won' THEN payout - amount
+           WHEN status = 'lost' THEN -amount
+           ELSE 0
+         END), 0) AS balance
+       FROM (
+         SELECT b.amount, b.status, b.payout FROM bets b JOIN weekly_lines wl ON wl.id = b.line_id
+         WHERE b.manager_id = $1 AND wl.season = $2 AND wl.week = $3 AND b.status != 'cancelled'
+         UNION ALL
+         SELECT p.amount, p.status, p.payout FROM parlays p
+         WHERE p.manager_id = $1 AND p.status != 'cancelled' AND EXISTS (
+           SELECT 1 FROM parlay_legs pl JOIN weekly_lines wl ON wl.id = pl.line_id
+           WHERE pl.parlay_id = p.id AND wl.season = $2 AND wl.week = $3
+         )
+       ) combined`,
+      [managerId, season, week]
+    ),
   ]);
-  return allowance - spent;
+  const pendingAtRisk = Number(rows[0].pending_at_risk);
+  const balance = Number(rows[0].balance);
+  const credit = Math.max(0, allowance + balance - pendingAtRisk);
+  return { allowance, balance, pendingAtRisk, credit };
 }
 
 export type PlaceBetResult =
@@ -358,12 +377,9 @@ export async function placeBet(
     return { ok: false, error: "You can't bet on your own matchup." };
   }
 
-  const [allowance, spent] = await Promise.all([
-    getManagerWeekAllowance(managerId, line.season, line.week),
-    getManagerWeekSpent(managerId, line.season, line.week),
-  ]);
-  if (spent + amount > allowance + 1e-9) {
-    return { ok: false, error: `Only $${(allowance - spent).toFixed(2)} of your weekly $${allowance} left.` };
+  const { credit } = await getManagerWeekMoney(managerId, line.season, line.week);
+  if (amount > credit + 1e-9) {
+    return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };
   }
 
   const { rows } = await getPool().query(
@@ -414,15 +430,9 @@ export async function placeParlay(
   }
 
   const firstLine = linesById.get(legs[0].lineId)!;
-  const [allowance, spent] = await Promise.all([
-    getManagerWeekAllowance(managerId, firstLine.season, firstLine.week),
-    getManagerWeekSpent(managerId, firstLine.season, firstLine.week),
-  ]);
-  if (spent + amount > allowance + 1e-9) {
-    return {
-      ok: false,
-      error: `Only $${(allowance - spent).toFixed(2)} of your weekly $${allowance} left.`,
-    };
+  const { credit } = await getManagerWeekMoney(managerId, firstLine.season, firstLine.week);
+  if (amount > credit + 1e-9) {
+    return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };
   }
 
   const { rows: parlayRows } = await pool.query(
@@ -597,28 +607,24 @@ export async function adjustBalance(
 export type ManagerWeekSummary = {
   manager_id: number;
   display_name: string;
-  spent: number;
   adjustment: number;
   allowance: number;
-  remaining: number;
+  balance: number;
+  credit: number;
 };
 
 export async function getAllManagerWeekSummaries(season: number, week: number): Promise<ManagerWeekSummary[]> {
   const managers = await getManagers();
   return Promise.all(
     managers.map(async (m) => {
-      const [spent, adjustment] = await Promise.all([
-        getManagerWeekSpent(m.id, season, week),
-        getManagerWeekAdjustment(m.id, season, week),
-      ]);
-      const allowance = WEEKLY_ALLOWANCE + adjustment;
+      const money = await getManagerWeekMoney(m.id, season, week);
       return {
         manager_id: m.id,
         display_name: m.display_name,
-        spent,
-        adjustment,
-        allowance,
-        remaining: allowance - spent,
+        adjustment: money.allowance - WEEKLY_ALLOWANCE,
+        allowance: money.allowance,
+        balance: money.balance,
+        credit: money.credit,
       };
     })
   );
