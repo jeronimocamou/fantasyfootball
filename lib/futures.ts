@@ -62,8 +62,8 @@ function probabilityFromAmericanOdds(odds: number): number {
 // of what the model says, and pinned them here instead. Order between the
 // two (Michael still shorter than Logan) still matches their model rank.
 const MANUAL_ODDS_OVERRIDES: Record<number, number> = {
-  1: 195, // Michael Grabel
-  4: 200, // logan guerrieri
+  1: 155, // Michael Grabel
+  4: 190, // logan guerrieri
 };
 
 export function computeChampionshipOdds(teams: TeamPower[]): ChampionshipOdds[] {
