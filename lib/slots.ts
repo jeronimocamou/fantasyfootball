@@ -1,9 +1,19 @@
 // Pure slot-machine math — no I/O, no randomness source baked in, so the
 // odds are easy to reason about and the RNG can be swapped/tested.
 
-// Old-school machines take a fixed token, not a variable wager — every
-// pull costs exactly this much.
-export const SLOT_BET_AMOUNT = 3;
+// Pulls are picked in 50-cent tokens, from one token up to six.
+export const SLOT_MIN_BET = 0.5;
+export const SLOT_MAX_BET = 3;
+export const SLOT_BET_STEP = 0.5;
+
+// True only for amounts landing exactly on a 50-cent step within range —
+// the server never trusts a client-supplied amount without this check.
+export function isValidSlotBet(amount: number): boolean {
+  if (!Number.isFinite(amount)) return false;
+  if (amount < SLOT_MIN_BET - 1e-9 || amount > SLOT_MAX_BET + 1e-9) return false;
+  const steps = Math.round(amount / SLOT_BET_STEP);
+  return Math.abs(steps * SLOT_BET_STEP - amount) < 1e-9;
+}
 
 export type SlotSymbol = "cherry" | "lemon" | "bell" | "seven";
 

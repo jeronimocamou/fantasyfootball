@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   SLOT_EMOJI,
-  SLOT_BET_AMOUNT,
+  SLOT_MIN_BET,
+  SLOT_MAX_BET,
+  SLOT_BET_STEP,
   SLOT_SYMBOL_ORDER,
   THREE_OF_A_KIND_PAYOUT,
   TWO_OF_A_KIND_PAYOUT_FRACTION,
@@ -23,6 +25,11 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function clampBet(amount: number): number {
+  const stepped = Math.round(amount / SLOT_BET_STEP) * SLOT_BET_STEP;
+  return Math.min(SLOT_MAX_BET, Math.max(SLOT_MIN_BET, Math.round(stepped * 100) / 100));
+}
+
 type Outcome = "won" | "half" | "lost";
 
 export default function SlotMachine({
@@ -35,6 +42,7 @@ export default function SlotMachine({
   const router = useRouter();
   const [credit, setCredit] = useState(initialCredit);
   const [balance, setBalance] = useState(initialBalance);
+  const [amount, setAmount] = useState(SLOT_MIN_BET);
   const [reels, setReels] = useState<string[]>(["🍒", "🍋", "🔔"]);
   const [spinning, setSpinning] = useState(false);
   const [leverPulled, setLeverPulled] = useState(false);
@@ -50,9 +58,11 @@ export default function SlotMachine({
     };
   }, []);
 
+  const canSpin = !spinning && !showPaytable && amount <= credit + 1e-9;
+
   async function spin() {
-    if (spinning) return;
-    if (SLOT_BET_AMOUNT > credit + 1e-9) {
+    if (spinning || showPaytable) return;
+    if (amount > credit + 1e-9) {
       setError(`Only $${credit.toFixed(2)} of credit left this week.`);
       return;
     }
@@ -69,7 +79,11 @@ export default function SlotMachine({
     }, TICK_MS);
 
     const [res] = await Promise.all([
-      fetch("/api/slots", { method: "POST" }),
+      fetch("/api/slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      }),
       wait(SPIN_MS),
     ]);
     const data = await res.json();
@@ -111,7 +125,7 @@ export default function SlotMachine({
       {/* pull lever */}
       <button
         onClick={spin}
-        disabled={spinning || credit < SLOT_BET_AMOUNT}
+        disabled={!canSpin}
         aria-label="Pull lever"
         className="absolute -right-5 top-10 z-10 flex flex-col items-center disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -179,13 +193,36 @@ export default function SlotMachine({
           {error && <span className="text-red-400">{error}</span>}
         </div>
 
+        {/* bet amount stepper */}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setAmount((a) => clampBet(a - SLOT_BET_STEP))}
+            disabled={spinning || amount <= SLOT_MIN_BET + 1e-9}
+            aria-label="Decrease pull amount"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[#e0b84a]/60 text-sm font-bold text-[#e0b84a] transition-colors hover:bg-[#e0b84a]/10 disabled:opacity-30"
+          >
+            −
+          </button>
+          <span className="w-16 text-center font-display text-sm font-semibold text-[#cfc2a8]">
+            ${amount.toFixed(2)} / pull
+          </span>
+          <button
+            onClick={() => setAmount((a) => clampBet(a + SLOT_BET_STEP))}
+            disabled={spinning || amount >= SLOT_MAX_BET - 1e-9}
+            aria-label="Increase pull amount"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[#e0b84a]/60 text-sm font-bold text-[#e0b84a] transition-colors hover:bg-[#e0b84a]/10 disabled:opacity-30"
+          >
+            +
+          </button>
+        </div>
+
         <div className="mt-3 flex items-center justify-center gap-2">
           <button
             onClick={spin}
-            disabled={spinning || credit < SLOT_BET_AMOUNT}
+            disabled={!canSpin}
             className="rounded-full bg-[#e0b84a] px-8 py-2.5 text-sm font-semibold text-[#221808] transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
           >
-            {spinning ? "Spinning…" : `Pull — $${SLOT_BET_AMOUNT}`}
+            {spinning ? "Spinning…" : `Pull — $${amount.toFixed(2)}`}
           </button>
           <button
             onClick={() => setShowPaytable((v) => !v)}
@@ -199,23 +236,25 @@ export default function SlotMachine({
       {/* base */}
       <div className="mx-auto h-3 w-4/5 rounded-b-lg bg-[#150f06]" />
 
-      {/* paytable popout */}
+      {/* paytable popout — sized to fully cover the lever so it can't be
+          bumped by accident while this is open (the lever button is also
+          disabled above, as a second guard). */}
       {showPaytable && (
-        <div className="absolute inset-x-2 top-6 z-20 rounded-2xl border-2 border-[#e0b84a] bg-[#140d05] p-4 shadow-2xl">
+        <div className="absolute left-2 right-[-44px] top-4 bottom-4 z-20 overflow-y-auto rounded-2xl border-2 border-[#e0b84a] bg-[#140d05] p-5 shadow-2xl">
           <div className="mb-3 flex items-center justify-between">
-            <span className="font-display text-sm font-bold tracking-[0.15em] text-[#e0b84a]">PAYTABLE</span>
+            <span className="font-display text-base font-bold tracking-[0.15em] text-[#e0b84a]">PAYTABLE</span>
             <button
               onClick={() => setShowPaytable(false)}
               aria-label="Close paytable"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-[#a89b85] hover:bg-white/10 hover:text-[#e0b84a]"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[#a89b85] hover:bg-white/10 hover:text-[#e0b84a]"
             >
               ×
             </button>
           </div>
           <div className="flex flex-col divide-y divide-[#3a2b17]">
             {SLOT_SYMBOL_ORDER.map((symbol) => (
-              <div key={symbol} className="flex items-center justify-between py-2">
-                <span className="text-xl">
+              <div key={symbol} className="flex items-center justify-between py-2.5">
+                <span className="text-2xl">
                   {SLOT_EMOJI[symbol]}
                   {SLOT_EMOJI[symbol]}
                   {SLOT_EMOJI[symbol]}
@@ -226,23 +265,26 @@ export default function SlotMachine({
                       JACKPOT
                     </span>
                   )}
-                  <span className="font-display text-sm font-semibold text-[#e0b84a]">
+                  <span className="font-display text-base font-semibold text-[#e0b84a]">
                     {THREE_OF_A_KIND_PAYOUT[symbol]}×
                   </span>
                 </span>
               </div>
             ))}
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-[#cfc2a8]">Any two matching</span>
-              <span className="font-display text-sm font-semibold text-[#e0b84a]">
+              <span className="font-display text-base font-semibold text-[#e0b84a]">
                 {TWO_OF_A_KIND_PAYOUT_FRACTION}× back
               </span>
             </div>
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between py-2.5">
               <span className="text-sm text-[#cfc2a8]">No match</span>
-              <span className="font-display text-sm font-semibold text-red-400">Lose stake</span>
+              <span className="font-display text-base font-semibold text-red-400">Lose stake</span>
             </div>
           </div>
+          <p className="mt-3 text-center text-[11px] text-[#a89b85]">
+            Pulls run ${SLOT_MIN_BET.toFixed(2)}–${SLOT_MAX_BET.toFixed(2)} in {SLOT_BET_STEP.toFixed(2)} steps.
+          </p>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import { getPool } from "./pg";
 import { computeLine, gradeSide, profitForOdds, parlayPayout, DEFAULT_ODDS } from "./betting";
 import { fetchLeagueLive, type EspnTeam } from "./espn";
 import { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS } from "./bettingConstants";
-import { spinReels, gradeSpin, SLOT_EMOJI, SLOT_BET_AMOUNT, type SlotSymbol } from "./slots";
+import { spinReels, gradeSpin, SLOT_EMOJI, isValidSlotBet, type SlotSymbol } from "./slots";
 
 export { WEEKLY_ALLOWANCE, MIN_BET, MIN_PARLAY_LEGS };
 
@@ -371,16 +371,19 @@ export type SlotSpinResult =
   | { ok: true; reels: SlotSymbol[]; amount: number; payout: number; credit: number; balance: number }
   | { ok: false; error: string };
 
-// Every pull costs a fixed SLOT_BET_AMOUNT — an old-school machine takes
-// one token, not a variable wager — so there's no client-supplied amount
-// to validate at all, only a credit check against that fixed cost. A spin
-// settles in the same call that places it — no pending state.
+// Every pull is picked in 50-cent tokens (SLOT_MIN_BET..SLOT_MAX_BET) —
+// isValidSlotBet rejects anything off that grid before it's trusted, same
+// never-trust-the-client posture as placeBet/placeParlay's amount checks.
+// A spin settles in the same call that places it — no pending state.
 export async function playSlotSpin(
   managerId: number,
   season: number,
-  week: number
+  week: number,
+  amount: number
 ): Promise<SlotSpinResult> {
-  const amount = SLOT_BET_AMOUNT;
+  if (!isValidSlotBet(amount)) {
+    return { ok: false, error: "Invalid pull amount." };
+  }
   const { credit } = await getManagerWeekMoney(managerId, season, week);
   if (amount > credit + 1e-9) {
     return { ok: false, error: `Only $${credit.toFixed(2)} of credit left this week.` };
