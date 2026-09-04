@@ -16,41 +16,54 @@ function formatSpread(spread: number): string {
 function BetsTable({ bets, onCancel }: { bets: AdminBetRow[]; onCancel: (betId: number) => void }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
-      <table className="w-full min-w-[720px] text-sm">
+      <table className="w-full min-w-[820px] text-sm">
         <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
             <th className="px-4 py-3">Bettor</th>
             <th className="px-4 py-3">Pick</th>
             <th className="px-4 py-3">Vs</th>
             <th className="px-4 py-3 text-right">Amount</th>
+            <th className="px-4 py-3 text-right">To Win</th>
             <th className="px-4 py-3 text-right">Status</th>
             <th className="px-4 py-3"></th>
           </tr>
         </thead>
         <tbody>
-          {bets.map((b) => (
-            <tr key={b.id} className="border-t border-border-color/60">
-              <td className="px-4 py-3">{b.manager_name}</td>
-              <td className="px-4 py-3 font-medium">
-                {b.side_name} {formatSpread(Number(b.spread_for_side))}
-              </td>
-              <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
-              <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
-              <td className="px-4 py-3 text-right">
-                <StatusPill status={b.status} />
-              </td>
-              <td className="px-4 py-3 text-right">
-                {b.status === "pending" && (
-                  <button
-                    onClick={() => onCancel(b.id)}
-                    className="text-xs text-red-600 hover:underline dark:text-red-400"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
+          {bets.map((b) => {
+            const potentialPayout = Number(b.amount) + profitForOdds(Number(b.amount), b.odds);
+            return (
+              <tr key={b.id} className="border-t border-border-color/60">
+                <td className="px-4 py-3">{b.manager_name}</td>
+                <td className="px-4 py-3 font-medium">
+                  {b.side_name} {formatSpread(Number(b.spread_for_side))}
+                </td>
+                <td className="px-4 py-3 text-muted">{b.opponent_name}</td>
+                <td className="px-4 py-3 text-right tabular-nums">${Number(b.amount).toFixed(2)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  {b.status === "pending" ? (
+                    <span className="italic text-muted">${potentialPayout.toFixed(2)}</span>
+                  ) : b.payout != null ? (
+                    `$${Number(b.payout).toFixed(2)}`
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <StatusPill status={b.status} />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {b.status === "pending" && (
+                    <button
+                      onClick={() => onCancel(b.id)}
+                      className="text-xs text-red-600 hover:underline dark:text-red-400"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -60,14 +73,21 @@ function BetsTable({ bets, onCancel }: { bets: AdminBetRow[]; onCancel: (betId: 
 function ParlaysList({ parlays, onCancel }: { parlays: AdminParlayRow[]; onCancel: (parlayId: number) => void }) {
   return (
     <div className="flex flex-col gap-3">
-      {parlays.map((p) => (
+      {parlays.map((p) => {
+        const wonOrPendingOdds = p.legs.filter((l) => l.status !== "lost").map((l) => l.odds);
+        const potential = parlayPayout(Number(p.amount), wonOrPendingOdds) ?? Number(p.amount);
+        return (
         <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">
               {p.manager_name} — {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
             </span>
             <div className="flex items-center gap-3">
-              {p.payout != null && <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>}
+              {p.status === "pending" ? (
+                <span className="text-xs italic text-muted">${potential.toFixed(2)} if won</span>
+              ) : (
+                p.payout != null && <span className="text-xs text-muted">${Number(p.payout).toFixed(2)}</span>
+              )}
               <StatusPill status={p.status} />
               {p.status === "pending" && (
                 <button
@@ -93,7 +113,8 @@ function ParlaysList({ parlays, onCancel }: { parlays: AdminParlayRow[]; onCance
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
