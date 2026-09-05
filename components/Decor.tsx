@@ -62,13 +62,13 @@ export default function Decor() {
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       {/* faint full-page watermarks, visible at every width */}
       <div
-        className="absolute text-accent"
+        className="absolute text-gold"
         style={{ top: "14%", left: "50%", transform: "translateX(-50%) rotate(-8deg)", opacity: 0.045 }}
       >
         <Football size={260} />
       </div>
       <div
-        className="absolute text-accent"
+        className="absolute text-gold"
         style={{ bottom: "2%", left: "50%", transform: "translateX(-50%) rotate(6deg)", opacity: 0.05 }}
       >
         <DollarSign size={220} />
@@ -79,7 +79,7 @@ export default function Decor() {
         {ITEMS.map((item, i) => (
           <div
             key={i}
-            className="absolute text-accent"
+            className="absolute text-gold"
             style={{
               top: item.top,
               [item.side]: item.offset,
