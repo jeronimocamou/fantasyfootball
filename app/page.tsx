@@ -26,7 +26,7 @@ export default async function BoardPage() {
   if (!week) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Board</h1>
+        <h1 className="text-2xl font-bold tracking-wide">Board</h1>
         <p className="text-sm text-muted">
           No lines yet — the sportsbook syncs from ESPN once matchups and
           projections are available for the season.
@@ -48,7 +48,7 @@ export default async function BoardPage() {
       <div className="flex flex-col gap-6 pb-48">
         <div className="flex items-baseline justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Week {week} Board</h1>
+            <h1 className="text-2xl font-bold tracking-wide">Week {week} Board</h1>
             <p className="mt-1 text-sm text-muted">
               Spreads set from ESPN&apos;s live projected totals. Lines lock at
               kickoff and go final once ESPN calls the matchup. ${MIN_BET} minimum
@@ -78,17 +78,17 @@ export default async function BoardPage() {
         </div>
 
         {!currentManagerId && (
-          <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
             Pick your name in the top right to place bets.
           </p>
         )}
         {currentManagerId != null && credit > 0 && credit < MIN_BET && (
-          <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
             Only ${credit.toFixed(2)} of credit left — below the ${MIN_BET} minimum, so betting is closed until next week.
           </p>
         )}
         {weekLocked && (
-          <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+          <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
             Betting is closed for Week {week} — games have already started. New lines open next week.
           </p>
         )}
@@ -108,7 +108,7 @@ export default async function BoardPage() {
             const spreadBDisplay = formatSpread(-Number(line.spread));
 
             return (
-              <div key={line.id} className="rounded-lg border border-border-color bg-surface p-4">
+              <div key={line.id} className="rounded border border-border-color bg-surface p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-xs text-muted">{isOwnMatchup ? "Your matchup" : ""}</span>
                   <StatusPill status={line.status} label={STATUS_LABEL[line.status]} />

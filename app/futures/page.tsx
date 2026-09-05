@@ -15,7 +15,7 @@ export default async function FuturesPage() {
   if (!week) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">Futures</h1>
+        <h1 className="text-2xl font-bold tracking-wide">Futures</h1>
         <p className="text-sm text-muted">
           No lines yet — futures open once the season syncs from ESPN.
         </p>
@@ -37,7 +37,7 @@ export default async function FuturesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Futures — Championship Odds</h1>
+          <h1 className="text-2xl font-bold tracking-wide">Futures — Championship Odds</h1>
           <p className="mt-1 text-sm text-muted">
             Who wins it all this year. Blends each team&apos;s current roster strength with last
             season&apos;s final standing. Odds drift as the real season plays out — a placed bet
@@ -54,23 +54,23 @@ export default async function FuturesPage() {
       </div>
 
       {!currentManagerId && (
-        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+        <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
           Pick your name in the top right to place bets.
         </p>
       )}
       {currentManagerId != null && !weekLocked && credit > 0 && credit < 3 && (
-        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+        <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
           Only ${credit.toFixed(2)} of credit left — below the $3 minimum, so betting is closed until
           next week.
         </p>
       )}
       {weekLocked && (
-        <p className="rounded-lg border border-border-color bg-accent-soft p-3 text-sm text-accent">
+        <p className="rounded border border-border-color bg-accent-soft p-3 text-sm text-accent">
           Futures betting is closed for Week {week} — games have already started. It reopens next week.
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <div className="overflow-x-auto rounded border border-border-color bg-surface">
         <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
             <tr>

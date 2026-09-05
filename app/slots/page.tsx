@@ -23,7 +23,7 @@ export default async function SlotsPage() {
   if (!managerId) {
     return (
       <FeltTable>
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-[#f0ebdd]">Slots</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-wide text-[#f0ebdd]">Slots</h1>
         <p className="text-sm text-[#cfc2a8]">Pick your name in the top right to play.</p>
       </FeltTable>
     );
@@ -33,7 +33,7 @@ export default async function SlotsPage() {
   if (!week) {
     return (
       <FeltTable>
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-[#f0ebdd]">Slots</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-wide text-[#f0ebdd]">Slots</h1>
         <p className="text-sm text-[#cfc2a8]">No week open yet — check back once the board is live.</p>
       </FeltTable>
     );
@@ -43,7 +43,7 @@ export default async function SlotsPage() {
 
   return (
     <FeltTable>
-      <h1 className="font-display text-2xl font-semibold tracking-tight text-[#f0ebdd]">
+      <h1 className="font-display text-2xl font-semibold tracking-wide text-[#f0ebdd]">
         🎰 Crackyard Slots
       </h1>
       <SlotMachine initialCredit={money.credit} initialBalance={money.balance} />

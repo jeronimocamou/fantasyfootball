@@ -20,7 +20,7 @@ function formatOdds(odds: number): string {
 
 function BetsTable({ bets, onCancel }: { bets: AdminBetRow[]; onCancel: (betId: number) => void }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+    <div className="overflow-x-auto rounded border border-border-color bg-surface">
       <table className="w-full min-w-[820px] text-sm">
         <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
@@ -82,7 +82,7 @@ function ParlaysList({ parlays, onCancel }: { parlays: AdminParlayRow[]; onCance
         const wonOrPendingOdds = p.legs.filter((l) => l.status !== "lost").map((l) => l.odds);
         const potential = parlayPayout(Number(p.amount), wonOrPendingOdds) ?? Number(p.amount);
         return (
-        <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
+        <div key={p.id} className="rounded border border-border-color bg-surface p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">
               {p.manager_name} — {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
@@ -132,7 +132,7 @@ function FuturesTable({
   onCancel: (futuresBetId: number) => void;
 }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+    <div className="overflow-x-auto rounded border border-border-color bg-surface">
       <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
@@ -266,7 +266,7 @@ export default function AdminDashboard({
     <div className="flex flex-col gap-8">
       <div className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">House Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-wide">House Dashboard</h1>
           <p className="mt-1 text-sm text-muted">Week {week} — everyone&apos;s bets and balances.</p>
         </div>
         <button onClick={logout} className="text-sm text-muted hover:text-foreground">
@@ -276,7 +276,7 @@ export default function AdminDashboard({
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Manager Balances</h2>
-        <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+        <div className="overflow-x-auto rounded border border-border-color bg-surface">
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
               <tr>
@@ -444,7 +444,7 @@ function SettleFuturesPanel({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border-color bg-surface p-4">
+    <div className="mt-3 flex flex-col gap-2 rounded border border-border-color bg-surface p-4">
       <div className="text-sm font-semibold">Settle {season} Futures</div>
       <p className="text-xs text-muted">
         Pick the champion — every pending futures bet on them wins, everyone else loses. This settles

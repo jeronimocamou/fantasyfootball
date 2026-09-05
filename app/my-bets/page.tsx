@@ -24,7 +24,7 @@ function formatOdds(odds: number): string {
 
 function BetsTable({ bets }: { bets: BetHistoryRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+    <div className="overflow-x-auto rounded border border-border-color bg-surface">
       <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
@@ -73,7 +73,7 @@ function ParlaysList({ parlays }: { parlays: ParlayHistoryRow[] }) {
         const wonOrPendingOdds = p.legs.filter((l) => l.status !== "lost").map((l) => l.odds);
         const potential = parlayPayout(Number(p.amount), wonOrPendingOdds) ?? Number(p.amount);
         return (
-          <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
+          <div key={p.id} className="rounded border border-border-color bg-surface p-4">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">
                 {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}
@@ -110,7 +110,7 @@ function ParlaysList({ parlays }: { parlays: ParlayHistoryRow[] }) {
 
 function FuturesTable({ futures }: { futures: FuturesHistoryRow[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+    <div className="overflow-x-auto rounded border border-border-color bg-surface">
       <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
           <tr>
@@ -156,7 +156,7 @@ export default async function MyBetsPage() {
   if (!managerId) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">My Bets</h1>
+        <h1 className="text-2xl font-bold tracking-wide">My Bets</h1>
         <p className="text-sm text-muted">Pick your name in the top right to see your bets.</p>
       </div>
     );
@@ -221,7 +221,7 @@ export default async function MyBetsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">My Bets{me ? ` — ${me.display_name}` : ""}</h1>
+        <h1 className="text-2xl font-bold tracking-wide">My Bets{me ? ` — ${me.display_name}` : ""}</h1>
         <div className="text-right text-sm">
           <div className="text-xs uppercase tracking-wide text-muted">Net (settled)</div>
           <div className={`text-lg font-bold ${net >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>

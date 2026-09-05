@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fraunces, Work_Sans, JetBrains_Mono } from "next/font/google";
+import { Oswald, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
 import Nav from "@/components/Nav";
 import Decor from "@/components/Decor";
 import BouncingKoala from "@/components/BouncingKoala";
@@ -14,15 +14,16 @@ import "./globals.css";
 // build instead of just this layout falling back gracefully at runtime.
 export const dynamic = "force-dynamic";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const oswald = Oswald({
+  variable: "--font-oswald",
   subsets: ["latin"],
-  axes: ["opsz"],
+  weight: ["500", "600", "700"],
 });
 
-const workSans = Work_Sans({
-  variable: "--font-work-sans",
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-plex-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -49,7 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${workSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${oswald.variable} ${plexSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Decor />
@@ -57,7 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <Nav managers={managers} currentManagerId={currentManagerId} />
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
           {dbError ? (
-            <p className="rounded-lg border border-red-600/30 bg-red-600/10 p-4 text-sm text-red-600 dark:text-red-400">
+            <p className="rounded border border-red-600/30 bg-red-600/10 p-4 text-sm text-red-600 dark:text-red-400">
               Can&apos;t reach the database right now. Try again in a moment.
             </p>
           ) : (

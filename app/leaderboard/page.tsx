@@ -6,13 +6,13 @@ export default async function LeaderboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
+        <h1 className="text-2xl font-bold tracking-wide">Leaderboard</h1>
         <p className="mt-1 text-sm text-muted">
           Net winnings across all settled bets, season-wide.
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+      <div className="overflow-x-auto rounded border border-border-color bg-surface">
         <table className="w-full min-w-[520px] text-sm">
           <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
             <tr>

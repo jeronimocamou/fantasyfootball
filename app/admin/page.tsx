@@ -20,7 +20,7 @@ export default async function AdminPage() {
   if (!week) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-bold tracking-tight">House Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-wide">House Dashboard</h1>
         <p className="text-sm text-muted">No lines synced yet this season.</p>
       </div>
     );

@@ -32,11 +32,11 @@ export default function Nav({
     <header className="sticky top-0 z-10 border-b border-border-color bg-surface/85 backdrop-blur">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-accent/40 bg-accent-soft font-display text-base font-semibold text-accent">
+          <span className="flex h-9 w-9 items-center justify-center rounded-sm border-2 border-accent bg-accent font-display text-base font-bold text-accent-foreground">
             CY
           </span>
-          <div className="font-display text-lg font-semibold leading-tight tracking-tight">
-            Crackyard Sportsbook
+          <div className="font-display text-lg uppercase leading-tight tracking-wide">
+            Crackyard <span className="text-gold">Sportsbook</span>
           </div>
         </Link>
         <div className="flex flex-wrap items-center gap-3">

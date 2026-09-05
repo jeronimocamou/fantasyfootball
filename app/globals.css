@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  /* Parchment/ledger light mode — warm, matte, not pure white or grey */
-  --background: #efede6;
-  --surface: #fbfaf6;
-  --foreground: #211f1a;
-  --muted: #726f62;
-  --border-color: #ddd9cc;
-  --accent: #9c6a2e;
-  --accent-foreground: #fbf6ec;
-  --accent-soft: #f1e4ce;
+  /* Scoreboard light mode — cool slate-plastic paper, navy ink, brass
+     for money. Deliberately not cream/parchment: this is a ticket board,
+     not a coffee-shop menu. */
+  --background: #e6e9e8;
+  --surface: #f7f9f9;
+  --foreground: #12202f;
+  --muted: #5c6b73;
+  --border-color: #ccd4d3;
+  --accent: #1f4a7a;
+  --accent-foreground: #f3f7fb;
+  --accent-soft: #dbe5ee;
+  --gold: #a4761f;
+  --gold-foreground: #fbf5e8;
 }
 
 @theme inline {
@@ -21,22 +25,27 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-work-sans);
-  --font-display: var(--font-fraunces);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --font-sans: var(--font-plex-sans);
+  --font-display: var(--font-oswald);
   --font-mono: var(--font-jetbrains-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Dark leather/wood, not pure black */
-    --background: #17140f;
-    --surface: #201c15;
-    --foreground: #f0ebdd;
-    --muted: #a79d89;
-    --border-color: #332c20;
-    --accent: #d0954b;
-    --accent-foreground: #17120a;
-    --accent-soft: #2e2317;
+    /* Scoreboard dark mode — the actual lounge board: navy-black with
+       brass gone bright, like a lit odds display. */
+    --background: #0c141c;
+    --surface: #121d29;
+    --foreground: #e7edf1;
+    --muted: #8394a0;
+    --border-color: #24333f;
+    --accent: #5f95d1;
+    --accent-foreground: #0a141d;
+    --accent-soft: #17293b;
+    --gold: #e0ac3f;
+    --gold-foreground: #241a05;
   }
 }
 
@@ -47,11 +56,22 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   text-wrap: balance;
 }
 
+h1 {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Odds, spreads, and money read as ticket/ledger figures, not prose —
+   monospaced and aligned wherever a table already opts into
+   tabular-nums. */
 .tabular-nums,
 table {
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }

@@ -51,12 +51,12 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
         <Link href="/admin" className="text-sm text-muted hover:text-foreground">
           ← Back to House Dashboard
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">{manager.display_name}</h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-wide">{manager.display_name}</h1>
         <p className="mt-1 text-sm text-muted">{manager.team_name} — full history across all weeks.</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-lg border border-border-color bg-surface p-4">
+        <div className="rounded border border-border-color bg-surface p-4">
           <div className="text-xs uppercase tracking-wide text-muted">Bets net</div>
           <div
             className={`mt-1 text-lg font-bold tabular-nums ${
@@ -67,7 +67,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
             {Math.abs(betsNet).toFixed(2)}
           </div>
         </div>
-        <div className="rounded-lg border border-border-color bg-surface p-4">
+        <div className="rounded border border-border-color bg-surface p-4">
           <div className="text-xs uppercase tracking-wide text-muted">Parlays net</div>
           <div
             className={`mt-1 text-lg font-bold tabular-nums ${
@@ -78,7 +78,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
             {Math.abs(parlaysNet).toFixed(2)}
           </div>
         </div>
-        <div className="rounded-lg border border-border-color bg-surface p-4">
+        <div className="rounded border border-border-color bg-surface p-4">
           <div className="text-xs uppercase tracking-wide text-muted">🎰 Slots net</div>
           <div
             className={`mt-1 text-lg font-bold tabular-nums ${
@@ -96,7 +96,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
         {spins.length === 0 ? (
           <p className="text-sm text-muted">No spins yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+          <div className="overflow-x-auto rounded border border-border-color bg-surface">
             <table className="w-full min-w-[560px] text-sm">
               <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -135,7 +135,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
         {bets.length === 0 ? (
           <p className="text-sm text-muted">No straight bets placed.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border-color bg-surface">
+          <div className="overflow-x-auto rounded border border-border-color bg-surface">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-foreground/5 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -177,7 +177,7 @@ export default async function ManagerDetailPage({ params }: { params: Promise<{ 
         ) : (
           <div className="flex flex-col gap-3">
             {parlays.map((p) => (
-              <div key={p.id} className="rounded-lg border border-border-color bg-surface p-4">
+              <div key={p.id} className="rounded border border-border-color bg-surface p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">
                     {p.legs.length}-leg parlay — ${Number(p.amount).toFixed(2)}{" "}
