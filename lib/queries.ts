@@ -260,6 +260,43 @@ export async function syncSeason(season: number) {
   }
 }
 
+// Called by /api/sync around every attempt, success or failure, so the
+// House Dashboard can tell "hasn't run in a while" apart from "ran fine,
+// nothing changed" — see sync_status in db/schema.sql.
+export async function recordSyncAttempt(error: string | null): Promise<void> {
+  await getPool().query(
+    `INSERT INTO sync_status (id, last_attempt_at, last_success_at, last_error)
+     VALUES (1, now(), CASE WHEN $1::text IS NULL THEN now() ELSE NULL END, $1)
+     ON CONFLICT (id) DO UPDATE SET
+       last_attempt_at = now(),
+       last_success_at = CASE WHEN $1::text IS NULL THEN now() ELSE sync_status.last_success_at END,
+       last_error = $1`,
+    [error]
+  );
+}
+
+export type SyncStatus = {
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  hoursSinceSuccess: number | null; // computed in SQL via now(), not Date.now() at render time
+};
+
+export async function getSyncStatus(): Promise<SyncStatus | null> {
+  const { rows } = await getPool().query(
+    `SELECT last_attempt_at, last_success_at, last_error,
+            EXTRACT(EPOCH FROM (now() - last_success_at)) / 3600 AS hours_since_success
+     FROM sync_status WHERE id = 1`
+  );
+  if (rows.length === 0) return null;
+  return {
+    lastAttemptAt: rows[0].last_attempt_at,
+    lastSuccessAt: rows[0].last_success_at,
+    lastError: rows[0].last_error,
+    hoursSinceSuccess: rows[0].hours_since_success == null ? null : Number(rows[0].hours_since_success),
+  };
+}
+
 export type BoardLine = LineRow & {
   team_a_name: string;
   team_a_team: string;
@@ -928,32 +965,6 @@ export async function getAllManagerWeekSummaries(season: number, week: number): 
         balance: money.balance,
         credit: money.credit,
       };
-    })
-  );
-}
-
-export type WeeklyRecapRow = {
-  managerId: number;
-  displayName: string;
-  byWeek: number[]; // net balance for each week 1..throughWeek, in order
-  total: number;
-};
-
-// Balance is already week-scoped (see getManagerWeekMoney) — it's exactly
-// "how much this manager won or lost that week," net of everything settled
-// in it. This just replays that per-week net across every week so far into
-// one table, since the live House Dashboard only ever shows the current
-// week and has no way to look back once the week rolls over.
-export async function getWeeklyRecap(season: number, throughWeek: number): Promise<WeeklyRecapRow[]> {
-  const managers = await getManagers();
-  const weeks = Array.from({ length: throughWeek }, (_, i) => i + 1);
-  return Promise.all(
-    managers.map(async (m) => {
-      const byWeek = await Promise.all(
-        weeks.map((w) => getManagerWeekMoney(m.id, season, w).then((money) => money.balance))
-      );
-      const total = byWeek.reduce((a, b) => a + b, 0);
-      return { managerId: m.id, displayName: m.display_name, byWeek, total };
     })
   );
 }

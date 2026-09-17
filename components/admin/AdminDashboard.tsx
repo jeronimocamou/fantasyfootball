@@ -179,6 +179,7 @@ export default function AdminDashboard({
   bets,
   parlays,
   futures,
+  syncWarning,
 }: {
   season: number;
   week: number;
@@ -186,6 +187,7 @@ export default function AdminDashboard({
   bets: AdminBetRow[];
   parlays: AdminParlayRow[];
   futures: AdminFuturesRow[];
+  syncWarning: string | null;
 }) {
   const router = useRouter();
 
@@ -278,6 +280,12 @@ export default function AdminDashboard({
           </button>
         </div>
       </div>
+
+      {syncWarning && (
+        <p className="rounded border border-red-600/40 bg-red-600/10 p-3 text-sm font-medium text-red-700 dark:text-red-400">
+          {syncWarning}
+        </p>
+      )}
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Manager Balances</h2>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncSeason } from "@/lib/queries";
+import { syncSeason, recordSyncAttempt } from "@/lib/queries";
 
 const SEASON = 2026;
 
@@ -21,9 +21,11 @@ function isAuthorized(req: NextRequest): boolean {
 async function runSync(): Promise<NextResponse> {
   try {
     await syncSeason(SEASON);
+    await recordSyncAttempt(null);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);
+    await recordSyncAttempt(String(err)).catch((e) => console.error("also failed to record sync status:", e));
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

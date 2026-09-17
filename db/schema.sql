@@ -135,6 +135,18 @@ CREATE TABLE IF NOT EXISTS futures_bets (
     settled_week     INTEGER
 );
 
+-- Single row (id=1), overwritten on every /api/sync hit — lets the House
+-- Dashboard tell "sync hasn't run in a while" apart from "sync ran fine,
+-- nothing's changed yet." Records both success and failure so a thrown
+-- syncSeason() error (not just a missed cron invocation) shows up too.
+CREATE TABLE IF NOT EXISTS sync_status (
+    id              INTEGER PRIMARY KEY DEFAULT 1,
+    last_attempt_at TIMESTAMPTZ,
+    last_success_at TIMESTAMPTZ,
+    last_error      TEXT,
+    CHECK (id = 1)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_season_week ON weekly_lines(season, week);
 CREATE INDEX IF NOT EXISTS idx_bets_manager ON bets(manager_id);
 CREATE INDEX IF NOT EXISTS idx_bets_line ON bets(line_id);
