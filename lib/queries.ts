@@ -932,6 +932,32 @@ export async function getAllManagerWeekSummaries(season: number, week: number): 
   );
 }
 
+export type WeeklyRecapRow = {
+  managerId: number;
+  displayName: string;
+  byWeek: number[]; // net balance for each week 1..throughWeek, in order
+  total: number;
+};
+
+// Balance is already week-scoped (see getManagerWeekMoney) — it's exactly
+// "how much this manager won or lost that week," net of everything settled
+// in it. This just replays that per-week net across every week so far into
+// one table, since the live House Dashboard only ever shows the current
+// week and has no way to look back once the week rolls over.
+export async function getWeeklyRecap(season: number, throughWeek: number): Promise<WeeklyRecapRow[]> {
+  const managers = await getManagers();
+  const weeks = Array.from({ length: throughWeek }, (_, i) => i + 1);
+  return Promise.all(
+    managers.map(async (m) => {
+      const byWeek = await Promise.all(
+        weeks.map((w) => getManagerWeekMoney(m.id, season, w).then((money) => money.balance))
+      );
+      const total = byWeek.reduce((a, b) => a + b, 0);
+      return { managerId: m.id, displayName: m.display_name, byWeek, total };
+    })
+  );
+}
+
 export type AdminBetRow = {
   id: number;
   manager_name: string;

@@ -269,9 +269,14 @@ export default function AdminDashboard({
           <h1 className="text-2xl font-bold tracking-wide">House Dashboard</h1>
           <p className="mt-1 text-sm text-muted">Week {week} — everyone&apos;s bets and balances.</p>
         </div>
-        <button onClick={logout} className="text-sm text-muted hover:text-foreground">
-          Log out
-        </button>
+        <div className="flex items-center gap-4">
+          <Link href="/admin/weekly" className="text-sm text-muted hover:text-foreground hover:underline">
+            Weekly Recap
+          </Link>
+          <button onClick={logout} className="text-sm text-muted hover:text-foreground">
+            Log out
+          </button>
+        </div>
       </div>
 
       <section>
