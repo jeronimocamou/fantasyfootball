@@ -1,18 +1,34 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-// Purely decorative — no click handler, no pointer-events, no purpose
-// beyond wandering the screen. Position/velocity live in refs and get
-// pushed straight to the DOM each frame instead of through React state,
-// so it never triggers a re-render of the page around it.
+// The koala itself is purely decorative — no click handler, no
+// pointer-events, no purpose beyond wandering the screen. Position/
+// velocity live in refs and get pushed straight to the DOM each frame
+// instead of through React state, so it never triggers a re-render of
+// the page around it. The toggle button is the one real, clickable
+// control here.
 const SIZE = 40; // px, roughly the rendered emoji footprint
 const SPEED = 90; // px/sec
+const STORAGE_KEY = "koala-visible";
 
 export default function BouncingKoala() {
   const elRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored !== null) setVisible(stored === "true");
+      } catch {
+        // localStorage unavailable — default stays visible
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
     const el = elRef.current;
     if (!el) return;
 
@@ -59,16 +75,41 @@ export default function BouncingKoala() {
     }
 
     return () => cancelAnimationFrame(frameId);
-  }, []);
+  }, [visible]);
+
+  function toggle() {
+    setVisible((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      } catch {
+        // ignore — just won't persist across reloads
+      }
+      return next;
+    });
+  }
 
   return (
-    <div
-      ref={elRef}
-      aria-hidden
-      className="pointer-events-none fixed left-0 top-0 z-30 select-none text-4xl"
-      style={{ willChange: "transform" }}
-    >
-      🐨
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={visible}
+        title={visible ? "Hide the koala" : "Show the koala"}
+        className="fixed left-3 top-[80px] z-40 flex h-9 w-9 items-center justify-center rounded-sm border border-border-color bg-surface text-lg opacity-60 grayscale transition-all hover:opacity-100 hover:grayscale-0"
+      >
+        🐨
+      </button>
+      {visible && (
+        <div
+          ref={elRef}
+          aria-hidden
+          className="pointer-events-none fixed left-0 top-0 z-30 select-none text-4xl"
+          style={{ willChange: "transform" }}
+        >
+          🐨
+        </div>
+      )}
+    </>
   );
 }
